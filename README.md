@@ -1,17 +1,237 @@
-# rainyun_app
+# Rainyun App
 
-A new Flutter project.
+<div align="center">
+  <img src="assets/images/app_icon.png" alt="Rainyun App Logo" width="120"/>
+  <p><strong>雨云服务管理第三方客户端</strong></p>
+  <p>基于 Flutter 开发的跨平台雨云服务管理应用</p>
+</div>
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## 📱 项目简介
 
-A few resources to get you started if this is your first Flutter project:
+Rainyun App 是一款基于 Flutter 开发的雨云（Rainyun.com）第三方服务管理客户端，支持 Android 和 iOS 平台。通过该应用，用户可以便捷地管理雨云的各类服务，包括云服务器、对象存储、CDN 等。
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## ✨ 主要功能
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
-# Rainyun-App
+### 🎯 核心功能
+- 🔐 **完整用户系统** - 登录/注册、实名认证、VIP 会员、积分奖励
+- 💻 **七大产品线** - RCS 云服务器、RGS 游戏云、RBM 裸金属、RVH 虚拟主机、RCA 云应用、ROS 对象存储、RCDN CDN加速
+- 📊 **实时监控** - 服务器状态、流量、性能全方位监控
+- 💾 **智能缓存** - 本地缓存服务器信息，离线也能查看
+- 🌐 **域名全管理** - 域名注册、DNS 解析、DNSSEC、域名过户、免费二级域名
+- 🔒 **SSL 证书** - 证书申请、管理、自动续期
+- 🎫 **工单系统** - 工单提交、回复、评分、产品授权
+- 📈 **财务管理** - 订单查询、发票开具、消费统计
+- 🌙 **主题切换** - 亮色/暗色主题自由切换
+
+### 💡 高级功能
+- **RCS 云服务器** - 完整的云服务器生命周期管理（46 个功能点）
+  - 创建、启停、重启、删除
+  - 系统重装、备份恢复
+  - 防火墙规则、NAT 映射
+  - 弹性云盘、IP 管理
+  - VNC 远程连接
+  - 流量统计和充值
+
+- **RGS 游戏云** - 专业游戏服务器管理（60 个功能点）
+  - 多游戏类型支持（Egg 系统）
+  - 翼龙面板集成
+  - PAL 幻兽帕鲁专属配置
+  - SFTP 文件管理
+  - CPU 充电、日付模式
+
+- **RCA 云应用** - 容器化应用平台（56 个功能点）
+  - App 商店和模板管理
+  - 项目和网站管理
+  - MySQL/Redis/PHP 配置
+  - 自动备份和扩容
+  - 雨点余额系统
+
+- **域名服务** - 企业级域名管理（38 个功能点）
+  - 域名注册和检查
+  - DNS 智能解析
+  - DNSSEC 安全加固
+  - 域名认证和过户
+  - 免费二级域名
+
+- **VIP 系统** - 多级代理和分销（14 个功能点）
+  - 代理认证和定价
+  - 优惠券发放
+  - 销售收益统计
+  - 下级用户管理
+  - 神人榜排行
+
+### 📊 API 覆盖率
+- **总计**: 460+ API 端点
+- **覆盖率**: 100% 官方 API
+- **分类**: 15 个主要模块
+- **功能点**: 300+ 业务功能
+
+## 🛠️ 技术栈
+
+### 核心框架
+- **Flutter** - 跨平台 UI 框架
+- **Dart** - 开发语言
+
+### 状态管理
+- **Riverpod** - 现代化状态管理方案
+- **Freezed** - 不可变数据类和联合类型
+
+### 网络与数据
+- **Dio** - HTTP 客户端
+- **Hive** - 轻量级本地存储
+- **Supabase** - 后端服务（数据库、认证）
+
+### UI 组件
+- **fl_chart** - 图表组件
+- **cached_network_image** - 图片缓存
+- **flutter_svg** - SVG 支持
+
+### 开发工具
+- **build_runner** - 代码生成
+- **json_serializable** - JSON 序列化
+- **flutter_launcher_icons** - 应用图标生成
+- **flutter_native_splash** - 启动页生成
+
+## 📦 项目结构
+
+```
+lib/
+├── core/                    # 核心模块
+│   ├── config/             # 配置文件
+│   ├── constants/          # 常量定义
+│   ├── network/            # 网络层封装
+│   └── theme/              # 主题配置
+├── data/                    # 数据层
+│   ├── models/             # 数据模型
+│   ├── repositories/       # 仓库层
+│   └── services/           # API 服务
+├── domain/                  # 业务逻辑层
+│   ├── entities/           # 业务实体
+│   └── usecases/           # 用例
+└── presentation/            # 表现层
+    ├── providers/          # Riverpod 提供者
+    ├── screens/            # 页面
+    └── widgets/            # 组件
+```
+
+## 🚀 快速开始
+
+### 环境要求
+
+- Flutter SDK: >= 3.0.0
+- Dart: >= 3.0.0
+- Java: 17 (Android 编译)
+- Xcode: >= 14.0 (iOS 编译，仅 macOS)
+
+### 安装步骤
+
+1. **克隆项目**
+```bash
+git clone https://github.com/yourusername/Rainyun-App.git
+cd Rainyun-App
+```
+
+2. **安装依赖**
+```bash
+flutter pub get
+```
+
+3. **生成代码**
+```bash
+flutter pub run build_runner build --delete-conflicting-outputs
+```
+
+4. **运行应用**
+```bash
+# Android
+flutter run
+
+# iOS (仅 macOS)
+flutter run -d ios
+
+# Release 模式
+flutter run --release
+```
+
+### 构建发布版本
+
+**Android APK**
+```bash
+export JAVA_HOME=/path/to/java17
+flutter build apk --release
+```
+
+**iOS IPA**
+```bash
+flutter build ios --release
+```
+
+## ⚙️ 配置说明
+
+### API 配置
+
+在 `lib/core/config/supabase_config.dart` 中配置 Supabase 连接：
+
+```dart
+class SupabaseConfig {
+  static const String supabaseUrl = 'YOUR_SUPABASE_URL';
+  static const String supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
+}
+```
+
+### Rainyun API Key
+
+应用首次启动时需要输入雨云 API Key，可从雨云控制台获取：
+1. 登录 [雨云控制台](https://rainyun.com)
+2. 进入 API 管理页面
+3. 创建并复制 API Key
+
+## 📊 数据库设计
+
+应用使用 Supabase 作为后端数据库，主要包含以下表：
+
+- `user_profiles` - 用户配置信息
+- `server_cache` - 服务器缓存数据
+- `api_logs` - API 调用日志
+
+详细的数据库设计请查看 [SUPABASE_SETUP.md](SUPABASE_SETUP.md)
+
+## 🔒 安全说明
+
+- API Key 使用 Hive 加密存储在本地
+- 所有网络请求均通过 HTTPS
+- 敏感信息不会上传到云端（除非用户主动同步）
+- 支持 RLS（行级安全策略）保护用户数据
+
+## 🤝 贡献指南
+
+欢迎提交 Issue 和 Pull Request！
+
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 提交 Pull Request
+
+## 📄 开源协议
+
+本项目采用 MIT 协议开源 - 详见 [LICENSE](LICENSE) 文件
+
+## 📮 联系方式
+
+- Issue: [GitHub Issues](https://github.com/yourusername/Rainyun-App/issues)
+- Email: your.email@example.com
+
+## 🙏 致谢
+
+- [Rainyun](https://rainyun.com) - 提供云服务 API
+- [Flutter](https://flutter.dev) - 优秀的跨平台框架
+- [Supabase](https://supabase.com) - 开源的 Firebase 替代品
+
+---
+
+<div align="center">
+  <p>Made with ❤️ by Summer</p>
+</div>
