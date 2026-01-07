@@ -7,7 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/theme/app_theme.dart';
 import 'core/constants/app_constants.dart';
 import 'core/config/supabase_config.dart';
-import 'presentation/screens/main_screen.dart';
+import 'presentation/screens/splash/splash_screen.dart';
 
 void main() async {
   await runZonedGuarded(() async {
@@ -71,7 +71,7 @@ class RainyunApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
-      home: const MainScreen(),
+      home: const SplashScreen(),
     );
   }
 }
