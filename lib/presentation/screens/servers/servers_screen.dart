@@ -23,13 +23,17 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
   }
 
   Future<void> _loadServers() async {
+    debugPrint('🔄 开始加载服务器列表...');
+    
     if (!_apiService.hasApiKey()) {
+      debugPrint('❌ 未找到 API Key');
       setState(() {
         _error = '请先在"我的"页面绑定API Key';
       });
       return;
     }
 
+    debugPrint('✅ API Key 已配置，开始请求数据...');
     setState(() {
       _isLoading = true;
       _error = null;
@@ -119,7 +123,7 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
@@ -160,28 +164,55 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
   Widget _buildContent() {
     if (_error != null) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text(
-              _error!,
-              style: TextStyle(color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            TDButton(
-              text: '重试',
-              onTap: _loadServers,
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.key_outlined, size: 80, color: Colors.orange[300]),
+              const SizedBox(height: 24),
+              const Text(
+                '需要绑定 API Key',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: _loadServers,
+                icon: const Icon(Icons.refresh),
+                label: const Text('重新加载'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     if (_isLoading && _servers.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('加载服务器列表中...'),
+          ],
+        ),
+      );
     }
 
     if (_servers.isEmpty) {
@@ -193,7 +224,12 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
             const SizedBox(height: 16),
             Text(
               '暂无服务器',
-              style: TextStyle(color: Colors.grey[600]),
+              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '请先购买服务器产品',
+              style: TextStyle(color: Colors.grey[400], fontSize: 12),
             ),
           ],
         ),
