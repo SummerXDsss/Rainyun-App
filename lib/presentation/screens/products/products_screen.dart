@@ -10,110 +10,60 @@ class ProductsScreen extends ConsumerStatefulWidget {
   ConsumerState<ProductsScreen> createState() => _ProductsScreenState();
 }
 
-class _ProductsScreenState extends ConsumerState<ProductsScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   final _apiService = RainyunApiService();
+  bool _isLoading = true;
+  String? _error;
+  Map<String, dynamic> _productStats = {};
 
-  final List<Map<String, dynamic>> _categories = [
-    {'name': '云服务器', 'key': 'rcs', 'icon': Icons.cloud_outlined},
-    {'name': '游戏云', 'key': 'rgs', 'icon': Icons.sports_esports_outlined},
-    {'name': '虚拟主机', 'key': 'rvh', 'icon': Icons.web_outlined},
-    {'name': '对象存储', 'key': 'ros', 'icon': Icons.storage_outlined},
-    {'name': 'CDN加速', 'key': 'rcdn', 'icon': Icons.speed_outlined},
+  // 产品类型配置
+  final List<Map<String, dynamic>> _productTypes = [
+    {'key': 'rcs', 'name': '云服务器', 'icon': Icons.cloud_outlined, 'color': Colors.blue, 'url': 'https://rainyun.com/rcs'},
+    {'key': 'rgs', 'name': '游戏云', 'icon': Icons.sports_esports_outlined, 'color': Colors.purple, 'url': 'https://rainyun.com/rgs'},
+    {'key': 'rvh', 'name': '虚拟主机', 'icon': Icons.web_outlined, 'color': Colors.green, 'url': 'https://rainyun.com/rvh'},
+    {'key': 'ros', 'name': '对象存储', 'icon': Icons.storage_outlined, 'color': Colors.orange, 'url': 'https://rainyun.com/ros'},
+    {'key': 'rcdn', 'name': 'CDN加速', 'icon': Icons.speed_outlined, 'color': Colors.red, 'url': 'https://rainyun.com/rcdn'},
+    {'key': 'nat', 'name': 'NAT转发', 'icon': Icons.swap_horiz, 'color': Colors.teal, 'url': 'https://rainyun.com'},
   ];
-
-  final Map<String, List<Map<String, dynamic>>> _packagesCache = {};
-  final Map<String, bool> _loadingStates = {};
-  final Map<String, String?> _errorStates = {};
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _categories.length, vsync: this);
-    _tabController.addListener(() {
-      if (_tabController.indexIsChanging) {
-        final category = _categories[_tabController.index]['key'] as String;
-        if (!_packagesCache.containsKey(category)) {
-          _loadPackages(category);
-        }
-      }
-    });
-    _loadPackages(_categories[0]['key'] as String);
+    _loadProductStats();
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadPackages(String categoryKey) async {
+  Future<void> _loadProductStats() async {
     if (!_apiService.hasApiKey()) {
       setState(() {
-        _errorStates[categoryKey] = '请先在"我的"页面绑定API Key';
+        _isLoading = false;
+        _error = '请先在"我的"页面绑定API Key';
       });
       return;
     }
 
-    debugPrint('🔄 加载 $categoryKey 套餐列表...');
     setState(() {
-      _loadingStates[categoryKey] = true;
-      _errorStates[categoryKey] = null;
+      _isLoading = true;
+      _error = null;
     });
 
     try {
-      Map<String, dynamic> response;
-      switch (categoryKey) {
-        case 'rcs':
-          response = await _apiService.getRcsPackages();
-          break;
-        case 'rgs':
-          response = await _apiService.getRgsPackages();
-          break;
-        case 'rvh':
-          response = await _apiService.getRvhPackages();
-          break;
-        case 'ros':
-          response = await _apiService.getRosPackages();
-          break;
-        case 'rcdn':
-          response = await _apiService.getRcdnPackages();
-          break;
-        default:
-          throw Exception('未知的产品类型');
-      }
-
-      // API返回小写字段名
+      final response = await _apiService.getProductList();
       final code = response['code'] ?? response['Code'];
-      final responseData = response['data'] ?? response['Data'];
-      debugPrint('✅ $categoryKey 套餐数据: code=$code');
-
-      if (code == 200 && responseData != null) {
-        List<Map<String, dynamic>> packages = [];
-
-        if (responseData is List) {
-          packages = responseData.cast<Map<String, dynamic>>();
-        } else if (responseData is Map) {
-          if (responseData.containsKey('packages')) {
-            packages = (responseData['packages'] as List).cast<Map<String, dynamic>>();
-          } else {
-            packages = [responseData as Map<String, dynamic>];
-          }
+      if (code == 200) {
+        final data = response['data'] ?? response['Data'];
+        if (data != null) {
+          setState(() {
+            _productStats = Map<String, dynamic>.from(data);
+            _isLoading = false;
+          });
         }
-
-        setState(() {
-          _packagesCache[categoryKey] = packages;
-          _loadingStates[categoryKey] = false;
-        });
       } else {
-        throw Exception(response['message'] ?? response['Message'] ?? '获取套餐列表失败');
+        throw Exception(response['message'] ?? '获取产品列表失败');
       }
     } catch (e) {
-      debugPrint('❌ 加载 $categoryKey 套餐失败: $e');
       setState(() {
-        _errorStates[categoryKey] = e.toString();
-        _loadingStates[categoryKey] = false;
+        _isLoading = false;
+        _error = e.toString();
       });
     }
   }
@@ -122,6 +72,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
@@ -139,57 +91,35 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  IconButton(
-                    onPressed: () async {
-                      final url = Uri.parse('https://rainyun.com');
-                      if (await canLaunchUrl(url)) {
-                        await launchUrl(url, mode: LaunchMode.externalApplication);
-                      }
-                    },
-                    icon: const Icon(Icons.open_in_browser),
-                    tooltip: '访问雨云官网',
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: _isLoading ? null : _loadProductStats,
+                        icon: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.refresh),
+                      ),
+                      IconButton(
+                        onPressed: () async {
+                          final url = Uri.parse('https://rainyun.com');
+                          if (await canLaunchUrl(url)) {
+                            await launchUrl(url, mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        icon: const Icon(Icons.open_in_browser),
+                        tooltip: '访问雨云官网',
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: isDark ? theme.cardTheme.color : Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                indicatorSize: TabBarIndicatorSize.tab,
-                indicator: BoxDecoration(
-                  color: theme.colorScheme.primary,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                labelColor: Colors.white,
-                unselectedLabelColor: theme.hintColor,
-                dividerColor: Colors.transparent,
-                tabs: _categories.map((cat) {
-                  return Tab(
-                    child: Row(
-                      children: [
-                        Icon(cat['icon'] as IconData, size: 18),
-                        const SizedBox(width: 6),
-                        Text(cat['name'] as String),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 16),
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: _categories.map((category) {
-                  return _buildProductList(category['key'] as String, category['name'] as String);
-                }).toList(),
-              ),
+              child: _buildContent(theme, cardColor),
             ),
           ],
         ),
@@ -197,13 +127,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
     );
   }
 
-  Widget _buildProductList(String categoryKey, String categoryName) {
-    final theme = Theme.of(context);
-    final isLoading = _loadingStates[categoryKey] ?? false;
-    final error = _errorStates[categoryKey];
-    final packages = _packagesCache[categoryKey] ?? [];
-
-    if (error != null) {
+  Widget _buildContent(ThemeData theme, Color cardColor) {
+    if (_error != null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -212,14 +137,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
             children: [
               Icon(Icons.error_outline, size: 64, color: theme.colorScheme.error),
               const SizedBox(height: 16),
-              Text(
-                error,
-                style: TextStyle(color: theme.hintColor),
-                textAlign: TextAlign.center,
-              ),
+              Text(_error!, style: TextStyle(color: theme.hintColor), textAlign: TextAlign.center),
               const SizedBox(height: 16),
               ElevatedButton.icon(
-                onPressed: () => _loadPackages(categoryKey),
+                onPressed: _loadProductStats,
                 icon: const Icon(Icons.refresh),
                 label: const Text('重试'),
               ),
@@ -229,227 +150,172 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
       );
     }
 
-    if (isLoading && packages.isEmpty) {
+    if (_isLoading) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 16),
-            Text('加载套餐列表中...'),
-          ],
-        ),
-      );
-    }
-
-    if (packages.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.inventory_2_outlined, size: 64, color: theme.hintColor),
-            const SizedBox(height: 16),
-            Text(
-              '暂无$categoryName套餐',
-              style: TextStyle(color: theme.hintColor, fontSize: 16),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '请稍后再试或访问雨云官网查看',
-              style: TextStyle(color: theme.hintColor, fontSize: 12),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () async {
-                final url = Uri.parse('https://rainyun.com');
-                if (await canLaunchUrl(url)) {
-                  await launchUrl(url, mode: LaunchMode.externalApplication);
-                }
-              },
-              icon: const Icon(Icons.open_in_browser),
-              label: const Text('访问雨云官网'),
-            ),
+            Text('加载产品信息中...'),
           ],
         ),
       );
     }
 
     return RefreshIndicator(
-      onRefresh: () => _loadPackages(categoryKey),
-      child: ListView.builder(
+      onRefresh: _loadProductStats,
+      child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: packages.length,
-        itemBuilder: (context, index) {
-          final package = packages[index];
-          return _buildPackageCard(package, categoryKey, categoryName);
-        },
-      ),
-    );
-  }
-
-  Widget _buildPackageCard(Map<String, dynamic> package, String categoryKey, String categoryName) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
-    final name = package['Name'] ?? package['name'] ?? '未命名套餐';
-    final cpu = package['CPU'] ?? package['cpu'] ?? 0;
-    final memory = package['Memory'] ?? package['memory'] ?? 0;
-    final disk = package['Disk'] ?? package['disk'] ?? 0;
-    final bandwidth = package['Bandwidth'] ?? package['bandwidth'] ?? 0;
-    final price = package['Price'] ?? package['price'] ?? 0.0;
-    final packageId = package['PackageID']?.toString() ?? package['package_id']?.toString() ?? '';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey[200]!),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    categoryName,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: theme.colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+        children: [
+          // 产品统计网格
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 1.3,
             ),
-            const SizedBox(height: 12),
-            if (cpu > 0 || memory > 0 || disk > 0)
-              Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                children: [
-                  if (cpu > 0) _buildSpec(Icons.memory, '$cpu核'),
-                  if (memory > 0) _buildSpec(Icons.sd_card, '${memory}G'),
-                  if (disk > 0) _buildSpec(Icons.storage, '${disk}G'),
-                  if (bandwidth > 0) _buildSpec(Icons.speed, '${bandwidth}M'),
-                ],
+            itemCount: _productTypes.length,
+            itemBuilder: (context, index) {
+              final product = _productTypes[index];
+              return _buildProductCard(product, theme, cardColor);
+            },
+          ),
+          const SizedBox(height: 24),
+          
+          // 购买新产品入口
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [theme.primaryColor, theme.primaryColor.withOpacity(0.7)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
               children: [
-                if (price > 0)
-                  RichText(
-                    text: TextSpan(
-                      style: const TextStyle(color: Colors.black),
-                      children: [
-                        const TextSpan(text: '¥'),
-                        TextSpan(
-                          text: price.toString(),
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red,
-                          ),
-                        ),
-                        const TextSpan(
-                          text: '/月',
-                          style: TextStyle(color: Colors.grey, fontSize: 12),
-                        ),
-                      ],
-                    ),
+                const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 40),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '购买新产品',
+                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '前往雨云官网选购更多产品',
+                        style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14),
+                      ),
+                    ],
                   ),
+                ),
                 ElevatedButton(
-                  onPressed: () => _showPurchaseDialog(name, categoryName, packageId),
+                  onPressed: () async {
+                    final url = Uri.parse('https://rainyun.com');
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.white,
+                    foregroundColor: theme.primaryColor,
                   ),
                   child: const Text('立即购买'),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+        ],
       ),
     );
   }
 
-  Widget _buildSpec(IconData icon, String text) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: Colors.grey[600]),
-        const SizedBox(width: 4),
-        Text(
-          text,
-          style: TextStyle(color: Colors.grey[700], fontSize: 14),
-        ),
-      ],
-    );
-  }
+  Widget _buildProductCard(Map<String, dynamic> product, ThemeData theme, Color cardColor) {
+    final key = product['key'] as String;
+    final name = product['name'] as String;
+    final icon = product['icon'] as IconData;
+    final color = product['color'] as Color;
+    final url = product['url'] as String;
 
-  void _showPurchaseDialog(String packageName, String categoryName, String packageId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('购买产品'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+    // 从统计数据获取产品数量
+    int count = 0;
+    if (_productStats.containsKey(key)) {
+      final stats = _productStats[key];
+      if (stats is Map) {
+        count = stats['TotalCount'] ?? stats['totalCount'] ?? 0;
+      } else if (stats is int) {
+        count = stats;
+      }
+    }
+
+    return GestureDetector(
+      onTap: () async {
+        final uri = Uri.parse(url);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('产品名称: $packageName'),
-            const SizedBox(height: 8),
-            Text('产品类型: $categoryName'),
-            const SizedBox(height: 16),
-            const Text(
-              '购买功能需要跳转到雨云官网完成',
-              style: TextStyle(color: Colors.grey, fontSize: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: color, size: 24),
+                ),
+                if (count > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '$count 个',
+                      style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  count > 0 ? '已拥有' : '点击购买',
+                  style: TextStyle(color: theme.hintColor, fontSize: 12),
+                ),
+              ],
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton.icon(
-            onPressed: () async {
-              Navigator.pop(context);
-              final url = Uri.parse('https://rainyun.com');
-              if (await canLaunchUrl(url)) {
-                await launchUrl(url, mode: LaunchMode.externalApplication);
-              }
-            },
-            icon: const Icon(Icons.open_in_browser, size: 18),
-            label: const Text('前往官网'),
-          ),
-        ],
       ),
     );
   }

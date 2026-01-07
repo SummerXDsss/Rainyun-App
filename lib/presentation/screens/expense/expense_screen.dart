@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tdesign_flutter/tdesign_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/services/rainyun_api_service.dart';
 
 class ExpenseScreen extends StatefulWidget {
@@ -61,35 +62,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProvider
         }
       }
       
-      // 尝试获取订单列表（API可能不可用）
-      try {
-        final ordersResponse = await _apiService.get('/product/expense/order/', queryParameters: {'page': 1, 'page_size': 50});
-        final ordersCode = ordersResponse['code'] ?? ordersResponse['Code'];
-        if (ordersCode == 200) {
-          final ordersData = ordersResponse['data'] ?? ordersResponse['Data'];
-          if (ordersData != null && ordersData['Records'] != null) {
-            _orders = List<Map<String, dynamic>>.from(ordersData['Records']);
-          }
-        }
-      } catch (e) {
-        debugPrint('获取订单列表失败: $e');
-        // 订单API不可用，忽略错误
-      }
-      
-      // 尝试获取发票列表（API可能不可用）
-      try {
-        final invoicesResponse = await _apiService.get('/product/expense/invoice/', queryParameters: {'page': 1, 'page_size': 50});
-        final invoicesCode = invoicesResponse['code'] ?? invoicesResponse['Code'];
-        if (invoicesCode == 200) {
-          final invoicesData = invoicesResponse['data'] ?? invoicesResponse['Data'];
-          if (invoicesData != null && invoicesData['Records'] != null) {
-            _invoices = List<Map<String, dynamic>>.from(invoicesData['Records']);
-          }
-        }
-      } catch (e) {
-        debugPrint('获取发票列表失败: $e');
-        // 发票API不可用，忽略错误
-      }
+      // 注：订单和发票API暂不可用，跳过获取
       
       setState(() {
         _isLoading = false;
@@ -184,9 +157,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProvider
                   ],
                 ),
                 ElevatedButton.icon(
-                  onPressed: () {
-                    TDToast.showText('充值功能开发中', context: context);
-                  },
+                  onPressed: () => _showRechargeDialog(),
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('充值'),
                   style: ElevatedButton.styleFrom(
@@ -237,13 +208,43 @@ class _ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProvider
   Widget _buildOrdersList(Color cardColor, ThemeData theme) {
     if (_orders.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.receipt_long_outlined, size: 64, color: theme.disabledColor),
-            const SizedBox(height: 16),
-            Text('暂无订单记录', style: TextStyle(color: theme.disabledColor)),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: theme.primaryColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.receipt_long_outlined, size: 48, color: theme.primaryColor),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                '订单记录',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '您可以在雨云官网查看完整的订单记录',
+                style: TextStyle(color: theme.hintColor, fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  final url = Uri.parse('https://rainyun.com/account/bindmoney');
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  }
+                },
+                icon: const Icon(Icons.open_in_browser, size: 18),
+                label: const Text('前往官网查看'),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -454,5 +455,32 @@ class _ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProvider
       return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     }
     return time.toString();
+  }
+
+  void _showRechargeDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('充值'),
+        content: const Text('请前往雨云官网完成充值操作'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton.icon(
+            onPressed: () async {
+              Navigator.pop(context);
+              final url = Uri.parse('https://rainyun.com/account/bindmoney');
+              if (await canLaunchUrl(url)) {
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              }
+            },
+            icon: const Icon(Icons.open_in_browser, size: 18),
+            label: const Text('前往官网充值'),
+          ),
+        ],
+      ),
+    );
   }
 }
