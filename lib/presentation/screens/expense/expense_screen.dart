@@ -346,21 +346,43 @@ class _ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProvider
   Widget _buildInvoicesList(Color cardColor, ThemeData theme) {
     if (_invoices.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.description_outlined, size: 64, color: theme.disabledColor),
-            const SizedBox(height: 16),
-            Text('暂无发票记录', style: TextStyle(color: theme.disabledColor)),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () {
-                TDToast.showText('申请发票功能开发中', context: context);
-              },
-              icon: const Icon(Icons.add),
-              label: const Text('申请发票'),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.description_outlined, size: 48, color: Colors.orange),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                '发票管理',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '您可以在雨云官网申请和查看发票',
+                style: TextStyle(color: theme.hintColor, fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  final url = Uri.parse('https://rainyun.com/account/bindmoney');
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  }
+                },
+                icon: const Icon(Icons.open_in_browser, size: 18),
+                label: const Text('前往官网申请'),
+              ),
+            ],
+          ),
         ),
       );
     }

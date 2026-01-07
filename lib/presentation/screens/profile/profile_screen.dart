@@ -134,17 +134,79 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   children: [
                                     Row(
                                       children: [
-                                        Text(
-                                          _rainyunUser?.displayName ?? '用户',
-                                          style: const TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
+                                        Flexible(
+                                          child: Text(
+                                            _rainyunUser?.displayName ?? '用户',
+                                            style: const TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
-                                        if (_rainyunUser?.isVerified == true) ...[
-                                          const SizedBox(width: 4),
-                                          Icon(Icons.verified, size: 16, color: Colors.blue[600]),
-                                        ],
+                                        const SizedBox(width: 6),
+                                        // VIP等级徽章
+                                        if (_rainyunUser != null && _rainyunUser!.vipLevel > 0)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: _getVipColors(_rainyunUser!.vipLevel),
+                                              ),
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            child: Text(
+                                              'VIP${_rainyunUser!.vipLevel}',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        const SizedBox(width: 4),
+                                        // 实名认证徽章
+                                        if (_rainyunUser?.isVerified == true)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(10),
+                                              border: Border.all(color: Colors.green.withOpacity(0.5)),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.verified_user, size: 10, color: Colors.green),
+                                                SizedBox(width: 2),
+                                                Text(
+                                                  '已实名',
+                                                  style: TextStyle(
+                                                    color: Colors.green,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          )
+                                        else
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.orange.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(10),
+                                              border: Border.all(color: Colors.orange.withOpacity(0.5)),
+                                            ),
+                                            child: const Text(
+                                              '未实名',
+                                              style: TextStyle(
+                                                color: Colors.orange,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
                                       ],
                                     ),
                                     const SizedBox(height: 4),
@@ -482,6 +544,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           TDToast.showFail('密码错误', context: context);
         }
       }
+    }
+  }
+
+  List<Color> _getVipColors(int level) {
+    switch (level) {
+      case 1:
+        return [Colors.grey, Colors.grey.shade600];
+      case 2:
+        return [Colors.green, Colors.green.shade700];
+      case 3:
+        return [Colors.blue, Colors.blue.shade700];
+      case 4:
+        return [Colors.purple, Colors.purple.shade700];
+      case 5:
+        return [Colors.orange, Colors.red];
+      default:
+        return [Colors.grey, Colors.grey.shade600];
     }
   }
 

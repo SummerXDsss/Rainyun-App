@@ -7,6 +7,11 @@
 </div>
 
 ---
+## 声明
+此项目仅供学习交流使用，不得用于商业用途。
+您可以在 Release 中下载到已经编译好的 apk文件，无需配置 Supabase 等。
+我的雨云邀请链接：[Click Here!](https://www.rainyun.com/Summer_) 欢迎通过我的链接注册！
+感谢您的支持与喜欢本项目。
 
 ## 📱 项目简介
 
@@ -221,8 +226,8 @@ class SupabaseConfig {
 
 ## 📮 联系方式
 
-- Issue: [GitHub Issues](https://github.com/yourusername/Rainyun-App/issues)
-- Email: your.email@example.com
+- Issue: [GitHub Issues](https://github.com/summerxdsss/Rainyun-App/issues)
+- Email: summer@1103.site
 
 ## 🙏 致谢
 
