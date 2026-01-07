@@ -18,10 +18,13 @@ class AuthService {
     String? username,
   }) async {
     try {
+      // 使用 emailRedirectTo 指定移动应用的深链接
+      // 或者在 Supabase Dashboard 禁用邮箱确认
       final response = await _supabase.auth.signUp(
         email: email,
         password: password,
         data: username != null ? {'username': username} : null,
+        emailRedirectTo: 'com.summer.rainyun3rd://login-callback',
       );
       return response;
     } catch (e) {
