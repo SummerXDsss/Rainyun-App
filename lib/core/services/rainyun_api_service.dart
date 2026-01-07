@@ -242,4 +242,101 @@ class RainyunApiService {
     }
   }
 
+  // ========== Product Packages API ==========
+
+  /// 获取RCS套餐列表
+  Future<Map<String, dynamic>> getRcsPackages() async {
+    try {
+      final response = await _dio.get(ApiConstants.rcsPackages);
+      return response.data;
+    } catch (e) {
+      debugPrint('❌ getRcsPackages error: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取RCS价格
+  Future<Map<String, dynamic>> getRcsPrice({
+    required String packageId,
+    int? months,
+  }) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.rcsPrice,
+        queryParameters: {
+          'package_id': packageId,
+          if (months != null) 'months': months,
+        },
+      );
+      return response.data;
+    } catch (e) {
+      debugPrint('❌ getRcsPrice error: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取RGS套餐列表
+  Future<Map<String, dynamic>> getRgsPackages() async {
+    try {
+      final response = await _dio.get(ApiConstants.rgsPackages);
+      return response.data;
+    } catch (e) {
+      debugPrint('❌ getRgsPackages error: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取RGS价格
+  Future<Map<String, dynamic>> getRgsPrice({
+    required String packageId,
+    int? months,
+  }) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.rgsPrice,
+        queryParameters: {
+          'package_id': packageId,
+          if (months != null) 'months': months,
+        },
+      );
+      return response.data;
+    } catch (e) {
+      debugPrint('❌ getRgsPrice error: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取RVH套餐列表
+  Future<Map<String, dynamic>> getRvhPackages() async {
+    try {
+      final response = await _dio.get(ApiConstants.rvhPackages);
+      return response.data;
+    } catch (e) {
+      debugPrint('❌ getRvhPackages error: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取ROS套餐列表
+  Future<Map<String, dynamic>> getRosPackages() async {
+    try {
+      final response = await _dio.get(ApiConstants.rosPackages);
+      return response.data;
+    } catch (e) {
+      debugPrint('❌ getRosPackages error: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取RCDN套餐列表
+  Future<Map<String, dynamic>> getRcdnPackages() async {
+    try {
+      final response = await _dio.get(ApiConstants.rcdnPackages);
+      return response.data;
+    } catch (e) {
+      debugPrint('❌ getRcdnPackages error: $e');
+      rethrow;
+    }
+  }
+
 }
