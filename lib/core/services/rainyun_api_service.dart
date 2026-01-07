@@ -42,8 +42,12 @@ class RainyunApiService {
   void _loadApiKey() {
     try {
       final box = Hive.box(AppConstants.apiKeyBox);
-      _apiKey = box.get('rainyun_api_key');
-      debugPrint('🔑 API Key loaded: ${_apiKey != null ? "Yes" : "No"}');
+      _apiKey = box.get('api_key') as String?;
+      if (_apiKey != null && _apiKey!.isNotEmpty) {
+        debugPrint('🔑 API Key loaded: ${_apiKey!.substring(0, 8)}...');
+      } else {
+        debugPrint('⚠️ No API Key found');
+      }
     } catch (e) {
       debugPrint('❌ Failed to load API Key: $e');
     }
@@ -52,8 +56,8 @@ class RainyunApiService {
   Future<void> setApiKey(String apiKey) async {
     _apiKey = apiKey;
     final box = Hive.box(AppConstants.apiKeyBox);
-    await box.put('rainyun_api_key', apiKey);
-    debugPrint('🔑 API Key saved');
+    await box.put('api_key', apiKey);
+    debugPrint('🔑 API Key saved: ${apiKey.substring(0, 8)}...');
   }
 
   String? getApiKey() => _apiKey;
