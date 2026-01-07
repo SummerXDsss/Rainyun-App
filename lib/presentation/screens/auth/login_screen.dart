@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tdesign_flutter/tdesign_flutter.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/services/rainyun_api_service.dart';
 import '../main_screen.dart';
 import 'register_screen.dart';
 

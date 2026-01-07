@@ -30,7 +30,7 @@ class _SplashScreenState extends State<SplashScreen> {
     final isLoggedIn = session != null;
 
     final apiKeyBox = await Hive.openBox(AppConstants.apiKeyBox);
-    final apiKey = apiKeyBox.get('api_key') as String?;
+    final apiKey = apiKeyBox.get('rainyun_api_key') as String?;
     final hasApiKey = apiKey != null && apiKey.isNotEmpty;
 
     debugPrint('🔍 启动检查：登录状态=$isLoggedIn, API Key=$hasApiKey');

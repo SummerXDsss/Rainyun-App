@@ -84,19 +84,21 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
           throw Exception('未知的产品类型');
       }
 
-      debugPrint('✅ $categoryKey 套餐数据: ${response['Code']}');
+      // API返回小写字段名
+      final code = response['code'] ?? response['Code'];
+      final responseData = response['data'] ?? response['Data'];
+      debugPrint('✅ $categoryKey 套餐数据: code=$code');
 
-      if (response['Code'] == 200 && response['Data'] != null) {
-        final data = response['Data'];
+      if (code == 200 && responseData != null) {
         List<Map<String, dynamic>> packages = [];
 
-        if (data is List) {
-          packages = data.cast<Map<String, dynamic>>();
-        } else if (data is Map) {
-          if (data.containsKey('packages')) {
-            packages = (data['packages'] as List).cast<Map<String, dynamic>>();
+        if (responseData is List) {
+          packages = responseData.cast<Map<String, dynamic>>();
+        } else if (responseData is Map) {
+          if (responseData.containsKey('packages')) {
+            packages = (responseData['packages'] as List).cast<Map<String, dynamic>>();
           } else {
-            packages = [data as Map<String, dynamic>];
+            packages = [responseData as Map<String, dynamic>];
           }
         }
 
@@ -105,7 +107,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
           _loadingStates[categoryKey] = false;
         });
       } else {
-        throw Exception(response['Message'] ?? '获取套餐列表失败');
+        throw Exception(response['message'] ?? response['Message'] ?? '获取套餐列表失败');
       }
     } catch (e) {
       debugPrint('❌ 加载 $categoryKey 套餐失败: $e');
@@ -118,8 +120,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -151,7 +155,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                color: Colors.grey[100],
+                color: isDark ? theme.cardTheme.color : Colors.grey[100],
                 borderRadius: BorderRadius.circular(8),
               ),
               child: TabBar(
@@ -159,11 +163,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
                 isScrollable: true,
                 indicatorSize: TabBarIndicatorSize.tab,
                 indicator: BoxDecoration(
-                  color: Colors.blue,
+                  color: theme.colorScheme.primary,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 labelColor: Colors.white,
-                unselectedLabelColor: Colors.grey[700],
+                unselectedLabelColor: theme.hintColor,
                 dividerColor: Colors.transparent,
                 tabs: _categories.map((cat) {
                   return Tab(
@@ -194,6 +198,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
   }
 
   Widget _buildProductList(String categoryKey, String categoryName) {
+    final theme = Theme.of(context);
     final isLoading = _loadingStates[categoryKey] ?? false;
     final error = _errorStates[categoryKey];
     final packages = _packagesCache[categoryKey] ?? [];
@@ -205,11 +210,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+              Icon(Icons.error_outline, size: 64, color: theme.colorScheme.error),
               const SizedBox(height: 16),
               Text(
                 error,
-                style: const TextStyle(color: Colors.grey),
+                style: TextStyle(color: theme.hintColor),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -242,16 +247,16 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey[400]),
+            Icon(Icons.inventory_2_outlined, size: 64, color: theme.hintColor),
             const SizedBox(height: 16),
             Text(
               '暂无$categoryName套餐',
-              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+              style: TextStyle(color: theme.hintColor, fontSize: 16),
             ),
             const SizedBox(height: 8),
             Text(
               '请稍后再试或访问雨云官网查看',
-              style: TextStyle(color: Colors.grey[400], fontSize: 12),
+              style: TextStyle(color: theme.hintColor, fontSize: 12),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
@@ -283,6 +288,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
   }
 
   Widget _buildPackageCard(Map<String, dynamic> package, String categoryKey, String categoryName) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final name = package['Name'] ?? package['name'] ?? '未命名套餐';
     final cpu = package['CPU'] ?? package['cpu'] ?? 0;
     final memory = package['Memory'] ?? package['memory'] ?? 0;
@@ -294,9 +302,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+        border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey[200]!),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -315,14 +323,14 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.blue[50],
+                    color: theme.colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     categoryName,
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.blue[700],
+                      color: theme.colorScheme.onPrimaryContainer,
                       fontWeight: FontWeight.bold,
                     ),
                   ),

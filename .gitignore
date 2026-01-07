@@ -16,10 +16,8 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# VS Code
+.vscode/
 
 # Flutter/Dart/Pub related
 **/doc/api/
@@ -31,6 +29,8 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+*.g.dart
+*.freezed.dart
 
 # Symbolication related
 app.*.symbols
@@ -42,3 +42,41 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# iOS
+/ios/Pods/
+/ios/.symlinks/
+/ios/Flutter/Flutter.framework
+/ios/Flutter/Flutter.podspec
+/ios/Runner/GeneratedPluginRegistrant.*
+
+# macOS
+/macos/Pods/
+/macos/.symlinks/
+/macos/Flutter/Flutter.framework
+/macos/Flutter/ephemeral/
+
+# Environment and secrets
+.env
+.env.*
+*.keystore
+*.jks
+key.properties
+google-services.json
+GoogleService-Info.plist
+
+# Generated files
+lib/generated/
+*.mocks.dart
+
+# Coverage
+coverage/
+.test_coverage.dart
+
+# Temp files
+*.tmp
+*.temp
+*~
+
+# API文档目录（太大）
+Rainyun_Apis/

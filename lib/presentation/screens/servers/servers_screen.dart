@@ -23,17 +23,13 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
   }
 
   Future<void> _loadServers() async {
-    debugPrint('🔄 开始加载服务器列表...');
-    
     if (!_apiService.hasApiKey()) {
-      debugPrint('❌ 未找到 API Key');
       setState(() {
         _error = '请先在"我的"页面绑定API Key';
       });
       return;
     }
 
-    debugPrint('✅ API Key 已配置，开始请求数据...');
     setState(() {
       _isLoading = true;
       _error = null;
@@ -42,8 +38,12 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
     try {
       final productResponse = await _apiService.getProductList();
       
-      if (productResponse['Code'] == 200 && productResponse['Data'] != null) {
-        final data = productResponse['Data'] as Map<String, dynamic>;
+      // API返回小写字段名
+      final code = productResponse['code'] ?? productResponse['Code'];
+      final responseData = productResponse['data'] ?? productResponse['Data'];
+      
+      if (code == 200 && responseData != null) {
+        final data = responseData as Map<String, dynamic>;
         final List<Map<String, dynamic>> allServers = [];
 
         if (data['RCS'] != null) {
@@ -75,7 +75,7 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
           _isLoading = false;
         });
       } else {
-        throw Exception(productResponse['Message'] ?? '获取服务器列表失败');
+        throw Exception(productResponse['message'] ?? productResponse['Message'] ?? '获取服务器列表失败');
       }
     } catch (e) {
       setState(() {
@@ -104,12 +104,13 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
 
       if (context.mounted) {
         TDToast.dismissLoading();
-        if (response['Code'] == 200) {
+        final opCode = response['code'] ?? response['Code'];
+        if (opCode == 200) {
           TDToast.showSuccess('操作成功', context: context);
           await Future.delayed(const Duration(seconds: 2));
           _loadServers();
         } else {
-          TDToast.showFail(response['Message'] ?? '操作失败', context: context);
+          TDToast.showFail(response['message'] ?? response['Message'] ?? '操作失败', context: context);
         }
       }
     } catch (e) {
@@ -122,8 +123,9 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -153,7 +155,7 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
               ),
             ),
             Expanded(
-              child: _buildContent(),
+              child: _buildContent(theme),
             ),
           ],
         ),
@@ -161,7 +163,7 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(ThemeData theme) {
     if (_error != null) {
       return Center(
         child: Padding(
@@ -169,7 +171,7 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.key_outlined, size: 80, color: Colors.orange[300]),
+              Icon(Icons.key_outlined, size: 80, color: theme.colorScheme.tertiary),
               const SizedBox(height: 24),
               const Text(
                 '需要绑定 API Key',
@@ -182,7 +184,7 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
               Text(
                 _error!,
                 style: TextStyle(
-                  color: Colors.grey[600],
+                  color: theme.hintColor,
                   fontSize: 14,
                 ),
                 textAlign: TextAlign.center,
@@ -192,9 +194,6 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
                 onPressed: _loadServers,
                 icon: const Icon(Icons.refresh),
                 label: const Text('重新加载'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                ),
               ),
             ],
           ),
@@ -220,16 +219,16 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.dns_outlined, size: 64, color: Colors.grey[400]),
+            Icon(Icons.dns_outlined, size: 64, color: theme.hintColor),
             const SizedBox(height: 16),
             Text(
               '暂无服务器',
-              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+              style: TextStyle(color: theme.hintColor, fontSize: 16),
             ),
             const SizedBox(height: 8),
             Text(
               '请先购买服务器产品',
-              style: TextStyle(color: Colors.grey[400], fontSize: 12),
+              style: TextStyle(color: theme.hintColor, fontSize: 12),
             ),
           ],
         ),
@@ -241,12 +240,14 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
       itemCount: _servers.length,
       itemBuilder: (context, index) {
         final server = _servers[index];
-        return _buildServerCard(server);
+        return _buildServerCard(server, theme);
       },
     );
   }
 
-  Widget _buildServerCard(Map<String, dynamic> server) {
+  Widget _buildServerCard(Map<String, dynamic> server, ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final type = server['type'] ?? 'Unknown';
     final name = server['Name'] ?? '未命名服务器';
     final status = server['Status'] ?? 'unknown';
@@ -267,7 +268,7 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
@@ -280,14 +281,14 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.blue[50],
+                    color: theme.colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     type,
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.blue[700],
+                      color: theme.colorScheme.onPrimaryContainer,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -322,13 +323,13 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
             const SizedBox(height: 12),
             Row(
               children: [
-                Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                Icon(Icons.location_on, size: 16, color: theme.hintColor),
                 const SizedBox(width: 4),
-                Text(region, style: TextStyle(color: Colors.grey[600])),
+                Text(region, style: TextStyle(color: theme.hintColor)),
                 const SizedBox(width: 16),
-                Icon(Icons.computer, size: 16, color: Colors.grey[600]),
+                Icon(Icons.computer, size: 16, color: theme.hintColor),
                 const SizedBox(width: 4),
-                Text(ip, style: TextStyle(color: Colors.grey[600])),
+                Text(ip, style: TextStyle(color: theme.hintColor)),
               ],
             ),
             const SizedBox(height: 12),

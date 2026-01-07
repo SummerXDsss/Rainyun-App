@@ -23,7 +23,13 @@ class AuthService {
         email: email,
         password: password,
         data: username != null ? {'username': username} : null,
+        emailRedirectTo: 'com.summer.rainyun3rd://login-callback',
       );
+      
+      if (response.user != null) {
+        await _createUserProfile(response.user!, username);
+      }
+      
       return response;
     } catch (e) {
       debugPrint('❌ Sign up error: $e');
@@ -145,8 +151,6 @@ class AuthService {
       }
 
       final data = <String, dynamic>{
-        'user_id': currentUser!.id,
-        'email': currentUser!.email,
         'updated_at': DateTime.now().toIso8601String(),
       };
 
@@ -155,12 +159,12 @@ class AuthService {
       if (avatarUrl != null) data['avatar_url'] = avatarUrl;
       if (preferences != null) data['preferences'] = preferences;
 
-      // 使用upsert确保profile存在
       await _supabase
           .from('user_profiles')
-          .upsert(data, onConflict: 'user_id');
+          .update(data)
+          .eq('user_id', currentUser!.id);
 
-      debugPrint('✅ User profile updated/created with API Key');
+      debugPrint('✅ User profile updated');
     } catch (e) {
       debugPrint('❌ Update user profile error: $e');
       rethrow;
