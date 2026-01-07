@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../widgets/server_card.dart';
+import 'package:tdesign_flutter/tdesign_flutter.dart';
+import '../../../core/services/rainyun_api_service.dart';
 
 class ServersScreen extends ConsumerStatefulWidget {
   const ServersScreen({super.key});
@@ -10,33 +11,115 @@ class ServersScreen extends ConsumerStatefulWidget {
 }
 
 class _ServersScreenState extends ConsumerState<ServersScreen> {
-  bool _isRefreshing = false;
+  final _apiService = RainyunApiService();
+  bool _isLoading = false;
+  List<Map<String, dynamic>> _servers = [];
+  String? _error;
 
-  Future<void> _refreshServers() async {
+  @override
+  void initState() {
+    super.initState();
+    _loadServers();
+  }
+
+  Future<void> _loadServers() async {
+    if (!_apiService.hasApiKey()) {
+      setState(() {
+        _error = '请先在"我的"页面绑定API Key';
+      });
+      return;
+    }
+
     setState(() {
-      _isRefreshing = true;
+      _isLoading = true;
+      _error = null;
     });
 
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      final productResponse = await _apiService.getProductList();
+      
+      if (productResponse['Code'] == 200 && productResponse['Data'] != null) {
+        final data = productResponse['Data'] as Map<String, dynamic>;
+        final List<Map<String, dynamic>> allServers = [];
 
-    setState(() {
-      _isRefreshing = false;
-    });
+        if (data['RCS'] != null) {
+          final rcsList = data['RCS'] as List;
+          allServers.addAll(rcsList.map((e) => {
+            ...e as Map<String, dynamic>,
+            'type': 'RCS',
+          }));
+        }
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('刷新成功'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+        if (data['RGS'] != null) {
+          final rgsList = data['RGS'] as List;
+          allServers.addAll(rgsList.map((e) => {
+            ...e as Map<String, dynamic>,
+            'type': 'RGS',
+          }));
+        }
+
+        if (data['NAT'] != null) {
+          final natList = data['NAT'] as List;
+          allServers.addAll(natList.map((e) => {
+            ...e as Map<String, dynamic>,
+            'type': 'NAT',
+          }));
+        }
+
+        setState(() {
+          _servers = allServers;
+          _isLoading = false;
+        });
+      } else {
+        throw Exception(productResponse['Message'] ?? '获取服务器列表失败');
+      }
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _performAction(String productId, String action, String type) async {
+    try {
+      TDToast.showLoading(context: context);
+      
+      Map<String, dynamic> response;
+      if (type == 'RCS') {
+        if (action == 'start') {
+          response = await _apiService.rcsStart(productId);
+        } else if (action == 'stop') {
+          response = await _apiService.rcsStop(productId);
+        } else {
+          response = await _apiService.rcsRestart(productId);
+        }
+      } else {
+        throw Exception('暂不支持该类型服务器操作');
+      }
+
+      if (context.mounted) {
+        TDToast.dismissLoading();
+        if (response['Code'] == 200) {
+          TDToast.showSuccess('操作成功', context: context);
+          await Future.delayed(const Duration(seconds: 2));
+          _loadServers();
+        } else {
+          TDToast.showFail(response['Message'] ?? '操作失败', context: context);
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        TDToast.dismissLoading();
+        TDToast.showFail('操作失败：$e', context: context);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: Colors.grey[100],
       body: SafeArea(
         child: Column(
           children: [
@@ -45,65 +128,208 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
+                  const Text(
                     '我的服务器',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  GestureDetector(
-                    onTap: _isRefreshing ? null : _refreshServers,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: _isRefreshing
-                          ? SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Theme.of(context).colorScheme.primary,
-                                ),
-                              ),
-                            )
-                          : Icon(
-                              Icons.refresh,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
                     ),
+                  ),
+                  IconButton(
+                    onPressed: _isLoading ? null : _loadServers,
+                    icon: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh),
                   ),
                 ],
               ),
             ),
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                physics: const ClampingScrollPhysics(),
-                itemCount: 5,
-                itemBuilder: (context, index) {
-                  return ServerCard(
-                    serverName: 'RCS-服务器-${index + 1}',
-                    serverType: 'RCS',
-                    status: index % 2 == 0 ? 'running' : 'stopped',
-                    region: '香港',
-                    ipAddress: '192.168.1.${index + 1}',
-                    specs: '2C4G',
-                    expireDate: DateTime.now().add(Duration(days: 30 + index)),
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('点击了服务器 ${index + 1}'),
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
+              child: _buildContent(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              _error!,
+              style: TextStyle(color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            TDButton(
+              text: '重试',
+              onTap: _loadServers,
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_isLoading && _servers.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_servers.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.dns_outlined, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              '暂无服务器',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: _servers.length,
+      itemBuilder: (context, index) {
+        final server = _servers[index];
+        return _buildServerCard(server);
+      },
+    );
+  }
+
+  Widget _buildServerCard(Map<String, dynamic> server) {
+    final type = server['type'] ?? 'Unknown';
+    final name = server['Name'] ?? '未命名服务器';
+    final status = server['Status'] ?? 'unknown';
+    final productId = server['ProductID']?.toString() ?? '';
+    final region = server['Region'] ?? '';
+    final ip = server['IP'] ?? '';
+
+    Color statusColor = Colors.grey;
+    String statusText = '未知';
+    if (status == 'running' || status == 'Running') {
+      statusColor = Colors.green;
+      statusText = '运行中';
+    } else if (status == 'stopped' || status == 'Stopped') {
+      statusColor = Colors.red;
+      statusText = '已停止';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    type,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue[700],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    statusText,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: statusColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 4),
+                Text(region, style: TextStyle(color: Colors.grey[600])),
+                const SizedBox(width: 16),
+                Icon(Icons.computer, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 4),
+                Text(ip, style: TextStyle(color: Colors.grey[600])),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TDButton(
+                    text: '开机',
+                    size: TDButtonSize.small,
+                    type: TDButtonType.outline,
+                    theme: TDButtonTheme.primary,
+                    disabled: status == 'running' || status == 'Running',
+                    onTap: () => _performAction(productId, 'start', type),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TDButton(
+                    text: '关机',
+                    size: TDButtonSize.small,
+                    type: TDButtonType.outline,
+                    theme: TDButtonTheme.danger,
+                    disabled: status == 'stopped' || status == 'Stopped',
+                    onTap: () => _performAction(productId, 'stop', type),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TDButton(
+                    text: '重启',
+                    size: TDButtonSize.small,
+                    type: TDButtonType.outline,
+                    theme: TDButtonTheme.defaultTheme,
+                    onTap: () => _performAction(productId, 'restart', type),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

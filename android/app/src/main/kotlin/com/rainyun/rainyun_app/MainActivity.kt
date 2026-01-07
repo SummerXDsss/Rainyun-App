@@ -1,4 +1,4 @@
-package com.rainyun.rainyun_app
+package com.summer.rainyun3rd
 
 import io.flutter.embedding.android.FlutterActivity
 

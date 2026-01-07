@@ -24,7 +24,7 @@ if (flutterVersionName == null) {
 
 android {
     namespace "com.summer.rainyun3rd"
-    compileSdkVersion flutter.compileSdkVersion
+    compileSdkVersion 34
     ndkVersion flutter.ndkVersion
 
     compileOptions {
@@ -42,8 +42,9 @@ android {
 
     defaultConfig {
         applicationId "com.summer.rainyun3rd"
-        minSdkVersion 21
-        targetSdkVersion flutter.targetSdkVersion
+        minSdkVersion 23
+        targetSdkVersion 34
+        multiDexEnabled true
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }
