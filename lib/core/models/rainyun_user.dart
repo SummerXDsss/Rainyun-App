@@ -5,9 +5,11 @@ class RainyunUser {
   final String email;
   final String? phone;
   final double balance;
-  final String? companyName;
+  final int points;
+  final int vipLevel;
+  final String? shareCode;
   final int verified;
-  final String? realName;
+  final String? certifyStatus;
 
   RainyunUser({
     required this.uid,
@@ -16,30 +18,45 @@ class RainyunUser {
     required this.email,
     this.phone,
     required this.balance,
-    this.companyName,
+    this.points = 0,
+    this.vipLevel = 0,
+    this.shareCode,
     required this.verified,
-    this.realName,
+    this.certifyStatus,
   });
 
   factory RainyunUser.fromJson(Map<String, dynamic> json) {
     return RainyunUser(
-      uid: json['UID'] as int,
-      name: json['Name'] as String,
-      avatar: json['Avatar'] as String?,
-      email: json['Email'] as String,
+      uid: json['ID'] as int? ?? 0,
+      name: json['Name'] as String? ?? '',
+      avatar: json['IconUrl'] as String?,
+      email: json['Email'] as String? ?? '',
       phone: json['Phone'] as String?,
-      balance: (json['Balance'] as num?)?.toDouble() ?? 0.0,
-      companyName: json['CompanyName'] as String?,
-      verified: json['Verified'] as int? ?? 0,
-      realName: json['RealName'] as String?,
+      balance: (json['Money'] as num?)?.toDouble() ?? 0.0,
+      points: json['Points'] as int? ?? 0,
+      vipLevel: json['VipLevel'] as int? ?? 0,
+      shareCode: json['ShareCode'] as String?,
+      verified: json['Certify'] as int? ?? 0,
+      certifyStatus: json['CertifyStatus'] as String?,
     );
   }
 
   String get displayName => name.isNotEmpty ? name : 'UID: $uid';
   
   String get avatarUrl => avatar != null && avatar!.isNotEmpty 
-      ? 'https://api.v2.rainyun.com$avatar' 
+      ? (avatar!.startsWith('http') ? avatar! : 'https://cn-sy1.rains3.com$avatar')
       : '';
   
-  bool get isVerified => verified == 1;
+  bool get isVerified => verified == 1 || certifyStatus == 'passed';
+  
+  String get vipTitle {
+    switch (vipLevel) {
+      case 1: return 'Ⅰ级会员';
+      case 2: return 'Ⅱ级会员';
+      case 3: return 'Ⅲ级会员';
+      case 4: return 'Ⅳ级会员';
+      case 5: return 'Ⅴ级会员';
+      default: return '普通用户';
+    }
+  }
 }

@@ -61,24 +61,34 @@ class _ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProvider
         }
       }
       
-      // 获取订单列表
-      final ordersResponse = await _apiService.get('/pay/order/', queryParameters: {'page': 1, 'page_size': 50});
-      final ordersCode = ordersResponse['code'] ?? ordersResponse['Code'];
-      if (ordersCode == 200) {
-        final ordersData = ordersResponse['data'] ?? ordersResponse['Data'];
-        if (ordersData != null && ordersData['Records'] != null) {
-          _orders = List<Map<String, dynamic>>.from(ordersData['Records']);
+      // 尝试获取订单列表（API可能不可用）
+      try {
+        final ordersResponse = await _apiService.get('/product/expense/order/', queryParameters: {'page': 1, 'page_size': 50});
+        final ordersCode = ordersResponse['code'] ?? ordersResponse['Code'];
+        if (ordersCode == 200) {
+          final ordersData = ordersResponse['data'] ?? ordersResponse['Data'];
+          if (ordersData != null && ordersData['Records'] != null) {
+            _orders = List<Map<String, dynamic>>.from(ordersData['Records']);
+          }
         }
+      } catch (e) {
+        debugPrint('获取订单列表失败: $e');
+        // 订单API不可用，忽略错误
       }
       
-      // 获取发票列表
-      final invoicesResponse = await _apiService.get('/pay/invoice/', queryParameters: {'page': 1, 'page_size': 50});
-      final invoicesCode = invoicesResponse['code'] ?? invoicesResponse['Code'];
-      if (invoicesCode == 200) {
-        final invoicesData = invoicesResponse['data'] ?? invoicesResponse['Data'];
-        if (invoicesData != null && invoicesData['Records'] != null) {
-          _invoices = List<Map<String, dynamic>>.from(invoicesData['Records']);
+      // 尝试获取发票列表（API可能不可用）
+      try {
+        final invoicesResponse = await _apiService.get('/product/expense/invoice/', queryParameters: {'page': 1, 'page_size': 50});
+        final invoicesCode = invoicesResponse['code'] ?? invoicesResponse['Code'];
+        if (invoicesCode == 200) {
+          final invoicesData = invoicesResponse['data'] ?? invoicesResponse['Data'];
+          if (invoicesData != null && invoicesData['Records'] != null) {
+            _invoices = List<Map<String, dynamic>>.from(invoicesData['Records']);
+          }
         }
+      } catch (e) {
+        debugPrint('获取发票列表失败: $e');
+        // 发票API不可用，忽略错误
       }
       
       setState(() {
@@ -87,7 +97,10 @@ class _ExpenseScreenState extends State<ExpenseScreen> with SingleTickerProvider
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _error = e.toString();
+        // 只有获取用户信息失败才显示错误
+        if (_balance == 0) {
+          _error = e.toString();
+        }
       });
     }
   }

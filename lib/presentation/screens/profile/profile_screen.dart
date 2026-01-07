@@ -4,6 +4,7 @@ import 'package:tdesign_flutter/tdesign_flutter.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/rainyun_api_service.dart';
 import '../../../core/models/rainyun_user.dart';
+import '../../../core/utils/debug_log_manager.dart';
 import '../auth/login_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -231,32 +232,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'RainyunApp',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: theme.textTheme.bodyLarge?.color,
+              GestureDetector(
+                onLongPress: () => _showDebugModeDialog(context),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'RainyunApp',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: theme.textTheme.bodyLarge?.color,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Version 0.0.1',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.hintColor,
+                      const SizedBox(height: 4),
+                      Text(
+                        'Version 0.0.1',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.hintColor,
+                        ),
                       ),
-                    ),
-                  ],
+                      if (DebugLogManager().isDebugMode)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            '调试模式已开启',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.green,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -391,6 +406,80 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       } catch (e) {
         if (context.mounted) {
           TDToast.showFail('修改失败：$e', context: context);
+        }
+      }
+    }
+  }
+
+  void _showDebugModeDialog(BuildContext context) async {
+    final debugManager = DebugLogManager();
+    
+    if (debugManager.isDebugMode) {
+      // 已开启，显示选项
+      final result = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('调试模式'),
+          content: const Text('调试模式已开启，请选择操作'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'show'),
+              child: const Text('显示面板'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'close'),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('关闭调试'),
+            ),
+          ],
+        ),
+      );
+      
+      if (result == 'show') {
+        debugManager.showPanel();
+      } else if (result == 'close') {
+        debugManager.disableDebugMode();
+        setState(() {});
+      }
+      return;
+    }
+    
+    // 未开启，输入密码
+    final controller = TextEditingController();
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('开启调试模式'),
+        content: TextField(
+          controller: controller,
+          obscureText: true,
+          decoration: const InputDecoration(
+            hintText: '请输入调试密码',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('确认'),
+          ),
+        ],
+      ),
+    );
+    
+    if (result == true && controller.text.isNotEmpty) {
+      if (debugManager.enableDebugMode(controller.text)) {
+        setState(() {});
+        if (context.mounted) {
+          TDToast.showSuccess('调试模式已开启', context: context);
+        }
+      } else {
+        if (context.mounted) {
+          TDToast.showFail('密码错误', context: context);
         }
       }
     }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdesign_flutter/tdesign_flutter.dart';
 import '../../../core/services/rainyun_api_service.dart';
+import 'server_detail_screen.dart';
 
 class ServersScreen extends ConsumerStatefulWidget {
   const ServersScreen({super.key});
@@ -36,47 +37,50 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
     });
 
     try {
-      final productResponse = await _apiService.getProductList();
+      final List<Map<String, dynamic>> allServers = [];
       
-      // API返回小写字段名
-      final code = productResponse['code'] ?? productResponse['Code'];
-      final responseData = productResponse['data'] ?? productResponse['Data'];
-      
-      if (code == 200 && responseData != null) {
-        final data = responseData as Map<String, dynamic>;
-        final List<Map<String, dynamic>> allServers = [];
-
-        if (data['RCS'] != null) {
-          final rcsList = data['RCS'] as List;
-          allServers.addAll(rcsList.map((e) => {
-            ...e as Map<String, dynamic>,
-            'type': 'RCS',
-          }));
+      // 获取RCS云服务器列表（需要options参数）
+      try {
+        final rcsResponse = await _apiService.get('/product/rcs/', queryParameters: {'options': '{}'});
+        final rcsCode = rcsResponse['code'] ?? rcsResponse['Code'];
+        if (rcsCode == 200) {
+          final rcsData = rcsResponse['data'] ?? rcsResponse['Data'];
+          if (rcsData != null && rcsData['Records'] != null) {
+            final rcsList = rcsData['Records'] as List;
+            for (final e in rcsList) {
+              final item = Map<String, dynamic>.from(e as Map);
+              item['type'] = 'RCS';
+              allServers.add(item);
+            }
+          }
         }
-
-        if (data['RGS'] != null) {
-          final rgsList = data['RGS'] as List;
-          allServers.addAll(rgsList.map((e) => {
-            ...e as Map<String, dynamic>,
-            'type': 'RGS',
-          }));
-        }
-
-        if (data['NAT'] != null) {
-          final natList = data['NAT'] as List;
-          allServers.addAll(natList.map((e) => {
-            ...e as Map<String, dynamic>,
-            'type': 'NAT',
-          }));
-        }
-
-        setState(() {
-          _servers = allServers;
-          _isLoading = false;
-        });
-      } else {
-        throw Exception(productResponse['message'] ?? productResponse['Message'] ?? '获取服务器列表失败');
+      } catch (e) {
+        debugPrint('获取RCS列表失败: $e');
       }
+      
+      // 获取RGS游戏服务器列表（需要options参数）
+      try {
+        final rgsResponse = await _apiService.get('/product/rgs/', queryParameters: {'options': '{}'});
+        final rgsCode = rgsResponse['code'] ?? rgsResponse['Code'];
+        if (rgsCode == 200) {
+          final rgsData = rgsResponse['data'] ?? rgsResponse['Data'];
+          if (rgsData != null && rgsData['Records'] != null) {
+            final rgsList = rgsData['Records'] as List;
+            for (final e in rgsList) {
+              final item = Map<String, dynamic>.from(e as Map);
+              item['type'] = 'RGS';
+              allServers.add(item);
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('获取RGS列表失败: $e');
+      }
+
+      setState(() {
+        _servers = allServers;
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -248,129 +252,201 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
   Widget _buildServerCard(Map<String, dynamic> server, ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
     final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
-    final type = server['type'] ?? 'Unknown';
-    final name = server['Name'] ?? '未命名服务器';
+    
+    final type = server['type'] ?? 'RCS';
+    final hostName = server['HostName'] ?? '未命名';
     final status = server['Status'] ?? 'unknown';
-    final productId = server['ProductID']?.toString() ?? '';
-    final region = server['Region'] ?? '';
-    final ip = server['IP'] ?? '';
+    final ip = server['MainIPv4'] ?? '';
+    final expDate = server['ExpDate'] as int? ?? 0;
+    
+    // 节点信息
+    final node = server['Node'] as Map<String, dynamic>? ?? {};
+    final region = node['Region'] ?? '';
+    final zone = server['Zone'] ?? '';
+    
+    // 配置信息
+    final plan = server['Plan'] as Map<String, dynamic>? ?? {};
+    final cpu = plan['cpu'] ?? 0;
+    final memory = plan['memory'] ?? 0;
+    final netIn = server['NetIn'] ?? 0;
+    final netOut = server['NetOut'] ?? 0;
 
     Color statusColor = Colors.grey;
     String statusText = '未知';
-    if (status == 'running' || status == 'Running') {
+    if (status == 'running') {
       statusColor = Colors.green;
       statusText = '运行中';
-    } else if (status == 'stopped' || status == 'Stopped') {
+    } else if (status == 'stopped') {
       statusColor = Colors.red;
       statusText = '已停止';
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(4),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ServerDetailScreen(server: server),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 第一行：类型、名称、状态
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      type,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                  child: Text(
-                    type,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      hostName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: statusColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          statusText,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: statusColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              
+              // 第二行：地区和IP
+              Row(
+                children: [
+                  Text(_getRegionWithFlag(region), style: const TextStyle(fontSize: 13)),
+                  const SizedBox(width: 8),
+                  Text(zone, style: TextStyle(color: theme.hintColor, fontSize: 13)),
+                  const Spacer(),
+                  Text(ip, style: TextStyle(color: theme.hintColor, fontSize: 13)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              
+              // 第三行：配置和带宽
+              Row(
+                children: [
+                  _buildInfoChip(Icons.memory, '$cpu核 ${(memory / 1024).toStringAsFixed(0)}G', theme),
+                  const SizedBox(width: 8),
+                  _buildInfoChip(Icons.speed, '${netIn}M/${netOut}M', theme),
+                  const Spacer(),
+                  Text(
+                    '到期: ${_formatExpDate(expDate)}',
                     style: TextStyle(
+                      color: _isExpiringSoon(expDate) ? Colors.orange : theme.hintColor,
                       fontSize: 12,
-                      color: theme.colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    statusText,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: statusColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(Icons.location_on, size: 16, color: theme.hintColor),
-                const SizedBox(width: 4),
-                Text(region, style: TextStyle(color: theme.hintColor)),
-                const SizedBox(width: 16),
-                Icon(Icons.computer, size: 16, color: theme.hintColor),
-                const SizedBox(width: 4),
-                Text(ip, style: TextStyle(color: theme.hintColor)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TDButton(
-                    text: '开机',
-                    size: TDButtonSize.small,
-                    type: TDButtonType.outline,
-                    theme: TDButtonTheme.primary,
-                    disabled: status == 'running' || status == 'Running',
-                    onTap: () => _performAction(productId, 'start', type),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TDButton(
-                    text: '关机',
-                    size: TDButtonSize.small,
-                    type: TDButtonType.outline,
-                    theme: TDButtonTheme.danger,
-                    disabled: status == 'stopped' || status == 'Stopped',
-                    onTap: () => _performAction(productId, 'stop', type),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TDButton(
-                    text: '重启',
-                    size: TDButtonSize.small,
-                    type: TDButtonType.outline,
-                    theme: TDButtonTheme.defaultTheme,
-                    onTap: () => _performAction(productId, 'restart', type),
-                  ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Widget _buildInfoChip(IconData icon, String text, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.hintColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: theme.hintColor),
+          const SizedBox(width: 4),
+          Text(text, style: TextStyle(fontSize: 12, color: theme.hintColor)),
+        ],
+      ),
+    );
+  }
+
+  String _getRegionWithFlag(String region) {
+    if (region.contains('hk') || region.contains('HK')) {
+      return '🇭🇰 香港';
+    } else if (region.contains('tw') || region.contains('TW')) {
+      return '🇹🇼 台湾';
+    } else if (region.contains('jp') || region.contains('JP')) {
+      return '🇯🇵 日本';
+    } else if (region.contains('kr') || region.contains('KR')) {
+      return '🇰🇷 韩国';
+    } else if (region.contains('sg') || region.contains('SG')) {
+      return '🇸🇬 新加坡';
+    } else if (region.contains('us') || region.contains('US')) {
+      return '🇺🇸 美国';
+    } else if (region.contains('de') || region.contains('DE')) {
+      return '🇩🇪 德国';
+    } else if (region.contains('cn') && !region.contains('hk') && !region.contains('tw')) {
+      return '🇨🇳 中国';
+    }
+    return region;
+  }
+
+  String _formatExpDate(int timestamp) {
+    if (timestamp == 0) return '未知';
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+    return '${date.month}/${date.day}';
+  }
+
+  bool _isExpiringSoon(int timestamp) {
+    if (timestamp == 0) return false;
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+    final diff = date.difference(DateTime.now()).inDays;
+    return diff <= 7;
   }
 }

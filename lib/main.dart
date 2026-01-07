@@ -8,6 +8,7 @@ import 'core/theme/app_theme.dart';
 import 'core/constants/app_constants.dart';
 import 'core/config/supabase_config.dart';
 import 'presentation/screens/splash/splash_screen.dart';
+import 'presentation/widgets/debug_panel.dart';
 
 void main() async {
   await runZonedGuarded(() async {
@@ -71,6 +72,10 @@ class RainyunApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
+      builder: (context, child) {
+        // 用DebugPanel包装整个应用，使调试面板可以显示在任何页面之上
+        return DebugPanel(child: child ?? const SizedBox.shrink());
+      },
       home: const SplashScreen(),
     );
   }

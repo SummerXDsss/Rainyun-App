@@ -4,12 +4,14 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../constants/api_constants.dart';
 import '../constants/app_constants.dart';
+import '../utils/debug_log_manager.dart';
 import 'auth_service.dart';
 
 class RainyunApiService {
   late final Dio _dio;
   String? _apiKey;
   final AuthService _authService = AuthService();
+  final DebugLogManager _debugLog = DebugLogManager();
 
   RainyunApiService() {
     _dio = Dio(BaseOptions(
@@ -23,6 +25,9 @@ class RainyunApiService {
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
+        final startTime = DateTime.now().millisecondsSinceEpoch;
+        options.extra['startTime'] = startTime;
+        
         if (_apiKey != null) {
           options.headers['x-api-key'] = _apiKey;
           developer.log('🔑 已添加 API Key 到请求头', name: 'RainyunAPI');
@@ -30,17 +35,46 @@ class RainyunApiService {
           developer.log('⚠️ 警告：API Key 为空！', name: 'RainyunAPI');
         }
         developer.log('🌐 API Request: ${options.method} ${options.uri}', name: 'RainyunAPI');
-        developer.log('📋 Headers: ${options.headers}', name: 'RainyunAPI');
+        
+        // 记录到调试面板
+        _debugLog.logRequest(
+          method: options.method,
+          url: options.uri.toString(),
+          headers: Map<String, dynamic>.from(options.headers),
+          body: options.data,
+        );
+        
         return handler.next(options);
       },
       onResponse: (response, handler) {
+        final startTime = response.requestOptions.extra['startTime'] as int?;
+        final duration = startTime != null 
+            ? DateTime.now().millisecondsSinceEpoch - startTime 
+            : null;
+        
         developer.log('✅ API Response: ${response.statusCode}', name: 'RainyunAPI');
-        developer.log('📦 Response data: ${response.data}', name: 'RainyunAPI');
+        
+        // 记录到调试面板
+        _debugLog.logResponse(
+          method: response.requestOptions.method,
+          url: response.requestOptions.uri.toString(),
+          statusCode: response.statusCode ?? 0,
+          data: response.data,
+          durationMs: duration,
+        );
+        
         return handler.next(response);
       },
       onError: (error, handler) {
         developer.log('❌ API Error: ${error.message}', name: 'RainyunAPI');
-        developer.log('❌ Error response: ${error.response?.data}', name: 'RainyunAPI');
+        
+        // 记录错误到调试面板
+        _debugLog.logError(
+          title: 'API请求失败: ${error.requestOptions.uri.path}',
+          error: error.message ?? '未知错误',
+          stackTrace: error.response?.data?.toString(),
+        );
+        
         return handler.next(error);
       },
     ));
