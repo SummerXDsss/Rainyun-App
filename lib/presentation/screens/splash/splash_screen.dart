@@ -128,7 +128,7 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
             const SizedBox(height: 24),
             const Text(
-              'Rainyun App',
+              'RainyunApp',
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
@@ -137,7 +137,7 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              '雨云服务管理',
+              '雨云服务管理客户端',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.white70,

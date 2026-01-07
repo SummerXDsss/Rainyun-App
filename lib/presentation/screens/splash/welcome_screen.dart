@@ -48,7 +48,7 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 32),
                 const Text(
-                  '欢迎使用 Rainyun App',
+                  '欢迎使用 RainyunApp',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -58,7 +58,7 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  '雨云服务管理第三方客户端',
+                  '基于 Supabase 的雨云服务管理客户端',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.white70,

@@ -1,5 +1,5 @@
 class AppConstants {
-  static const String appName = 'Rainyun 3rd';
+  static const String appName = 'RainyunApp';
   static const String appVersion = '0.0.1';
   
   static const String hiveBoxName = 'rainyun_cache';

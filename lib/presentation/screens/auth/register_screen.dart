@@ -184,7 +184,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 16),
                 Center(
                   child: TDText(
-                    '注册即表示同意雨云用户协议',
+                    '使用 Supabase 创建 RainyunApp 账号',
                     font: TDTheme.of(context).fontBodySmall,
                     textColor: TDTheme.of(context).fontGyColor3,
                   ),

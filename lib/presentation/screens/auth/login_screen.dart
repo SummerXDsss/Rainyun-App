@@ -98,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 TDText(
-                  '登录您的雨云账号',
+                  '使用 Supabase 账号登录',
                   font: TDTheme.of(context).fontBodyMedium,
                   textColor: TDTheme.of(context).fontGyColor3,
                   textAlign: TextAlign.center,
