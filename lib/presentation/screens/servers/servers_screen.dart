@@ -440,7 +440,7 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
   String _formatExpDate(int timestamp) {
     if (timestamp == 0) return '未知';
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
-    return '${date.month}/${date.day}';
+    return '${date.year}年${date.month}月${date.day}日';
   }
 
   bool _isExpiringSoon(int timestamp) {

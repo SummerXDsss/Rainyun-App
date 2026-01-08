@@ -372,7 +372,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Icon(icon, color: textColor ?? Colors.orange),
+            Icon(icon, color: textColor ?? Colors.blue.shade300),
             const SizedBox(width: 16),
             Expanded(
               child: Column(

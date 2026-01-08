@@ -922,4 +922,15 @@ class RainyunApiService {
       rethrow;
     }
   }
+
+  /// 通用PUT请求
+  Future<Map<String, dynamic>> put(String path, {Map<String, dynamic>? data}) async {
+    try {
+      final response = await _dio.put(path, data: data);
+      return response.data;
+    } catch (e) {
+      debugPrint('❌ PUT $path error: $e');
+      rethrow;
+    }
+  }
 }
