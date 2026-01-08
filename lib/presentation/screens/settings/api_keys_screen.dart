@@ -145,8 +145,14 @@ class _ApiKeysScreenState extends ConsumerState<ApiKeysScreen> {
       // 更新本地API Key
       await _apiService.setApiKey(apiKey['api_key']);
 
-      TDToast.showSuccess('已切换到 ${apiKey['name']}', context: context);
-      _loadApiKeys();
+      if (mounted) {
+        TDToast.showSuccess('已切换到 ${apiKey['name']}，正在刷新...', context: context);
+        // 返回首页强制刷新所有数据
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+      }
     } catch (e) {
       TDToast.showFail('切换失败', context: context);
     }

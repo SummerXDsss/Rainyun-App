@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tdesign_flutter/tdesign_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/rainyun_api_service.dart';
+import 'card_layout_screen.dart';
 
 // 主题模式Provider
 final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
@@ -281,6 +282,32 @@ class _PersonalizationScreenState extends ConsumerState<PersonalizationScreen> {
                   cardStyle,
                 ),
               ],
+            ),
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // 卡片内容配置
+          _buildSectionTitle('卡片内容配置'),
+          Container(
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ListTile(
+              leading: Icon(Icons.tune, color: theme.primaryColor),
+              title: const Text('自定义卡片布局'),
+              subtitle: Text(
+                '调整卡片显示内容和排列顺序',
+                style: TextStyle(fontSize: 12, color: theme.hintColor),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CardLayoutScreen()),
+                );
+              },
             ),
           ),
           

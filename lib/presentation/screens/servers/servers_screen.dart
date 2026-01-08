@@ -4,6 +4,7 @@ import 'package:tdesign_flutter/tdesign_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/rainyun_api_service.dart';
 import '../settings/personalization_screen.dart';
+import '../settings/card_layout_screen.dart';
 import 'server_detail_screen.dart';
 
 class ServersScreen extends ConsumerStatefulWidget {
@@ -398,17 +399,18 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
     
     // 配置信息
     final plan = server['Plan'] as Map<String, dynamic>? ?? {};
-    final cpu = plan['cpu'] ?? 0;
-    final memory = plan['memory'] ?? 0;
-    final netIn = server['NetIn'] ?? 0;
-    final netOut = server['NetOut'] ?? 0;
+    final cpu = (plan['cpu'] as num?)?.toInt() ?? 0;
+    final memory = (plan['memory'] as num?)?.toInt() ?? 0;
+    final netIn = (server['NetIn'] as num?)?.toInt() ?? 0;
+    final netOut = (server['NetOut'] as num?)?.toInt() ?? 0;
     
     // 使用率信息
     final usageData = server['UsageData'] as Map<String, dynamic>? ?? {};
     final cpuUsage = (usageData['CPU'] as num?)?.toDouble() ?? 0;
-    final maxMem = usageData['MaxMem'] as int? ?? 1;
-    final freeMem = usageData['FreeMem'] as int? ?? 0;
-    final memUsage = maxMem > 0 ? ((maxMem - freeMem) / maxMem * 100) : 0;
+    final freeMem = (usageData['FreeMem'] as num?)?.toInt() ?? 0;
+    // 使用Plan中的memory（MB）作为总内存，转换为字节
+    final totalMemBytes = (memory as num) * 1024 * 1024;
+    final memUsage = totalMemBytes > 0 ? ((totalMemBytes - freeMem) / totalMemBytes * 100).clamp(0, 100) : 0;
 
     Color statusColor = Colors.grey;
     String statusText = '未知';
@@ -438,119 +440,182 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
         ),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 第一行：类型、名称、状态
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      typeName,  // 使用中文类型名称
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      displayName,  // 使用自定义名称或原名
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: statusColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          statusText,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: statusColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              
-              // 第二行：地区和IP
-              Row(
-                children: [
-                  Text(_getRegionWithFlag(region), style: const TextStyle(fontSize: 13)),
-                  const SizedBox(width: 8),
-                  Text(zone, style: TextStyle(color: theme.hintColor, fontSize: 13)),
-                  const Spacer(),
-                  Text(ip, style: TextStyle(color: theme.hintColor, fontSize: 13)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              
-              // 第三行：配置和带宽
-              Row(
-                children: [
-                  _buildInfoChip(Icons.memory, '$cpu核 ${(memory / 1024).toStringAsFixed(0)}G', theme),
-                  const SizedBox(width: 8),
-                  _buildInfoChip(Icons.speed, '${netIn}M/${netOut}M', theme),
-                  const Spacer(),
-                  Text(
-                    '到期: ${_formatExpDate(expDate)}',
-                    style: TextStyle(
-                      color: _isExpiringSoon(expDate) ? Colors.orange : theme.hintColor,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-              
-              // 第四行：CPU/内存使用率（仅运行中显示）
-              if (status == 'running') ...[
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildUsageIndicator('CPU', cpuUsage, Colors.blue, theme),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildUsageIndicator('内存', memUsage.toDouble(), Colors.purple, theme),
-                    ),
-                  ],
-                ),
-              ],
-            ],
+          child: _buildCardContent(
+            theme: theme,
+            typeName: typeName,
+            displayName: displayName,
+            status: status,
+            statusColor: statusColor,
+            statusText: statusText,
+            region: region,
+            zone: zone,
+            ip: ip,
+            cpu: cpu,
+            memory: memory,
+            netIn: netIn,
+            netOut: netOut,
+            expDate: expDate,
+            cpuUsage: cpuUsage,
+            memUsage: memUsage.toDouble(),
           ),
         ),
       ),
+    );
+  }
+  
+  // 根据配置构建卡片内容
+  Widget _buildCardContent({
+    required ThemeData theme,
+    required String typeName,
+    required String displayName,
+    required String status,
+    required Color statusColor,
+    required String statusText,
+    required String region,
+    required String zone,
+    required String ip,
+    required int cpu,
+    required int memory,
+    required int netIn,
+    required int netOut,
+    required int expDate,
+    required double cpuUsage,
+    required double memUsage,
+  }) {
+    final layout = ref.watch(cardLayoutProvider);
+    final List<Widget> children = [];
+    
+    for (final element in layout) {
+      if (!element.enabled) continue;
+      
+      switch (element.id) {
+        case 'type_tag':
+          // 类型标签和名称放一行
+          final showName = layout.any((e) => e.id == 'server_name' && e.enabled);
+          final showStatus = layout.any((e) => e.id == 'status' && e.enabled);
+          children.add(Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  typeName,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.colorScheme.onPrimaryContainer,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (showName) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    displayName,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ] else const Spacer(),
+              if (showStatus)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(width: 6, height: 6, decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)),
+                      const SizedBox(width: 4),
+                      Text(statusText, style: TextStyle(fontSize: 12, color: statusColor, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+            ],
+          ));
+          children.add(const SizedBox(height: 12));
+          break;
+          
+        case 'server_name':
+          // 已在type_tag中处理
+          break;
+          
+        case 'status':
+          // 已在type_tag中处理
+          break;
+          
+        case 'region':
+          final showIp = layout.any((e) => e.id == 'ip_address' && e.enabled);
+          children.add(Row(
+            children: [
+              Text(_getRegionWithFlag(region), style: const TextStyle(fontSize: 13)),
+              const SizedBox(width: 8),
+              Text(zone, style: TextStyle(color: theme.hintColor, fontSize: 13)),
+              const Spacer(),
+              if (showIp) Text(ip, style: TextStyle(color: theme.hintColor, fontSize: 13)),
+            ],
+          ));
+          children.add(const SizedBox(height: 8));
+          break;
+          
+        case 'ip_address':
+          // 已在region中处理
+          break;
+          
+        case 'specs':
+          final showExpire = layout.any((e) => e.id == 'expire_date' && e.enabled);
+          children.add(Row(
+            children: [
+              _buildInfoChip(Icons.memory, '$cpu核 ${(memory / 1024).toStringAsFixed(0)}G', theme),
+              const SizedBox(width: 8),
+              _buildInfoChip(Icons.speed, '${netIn}M/${netOut}M', theme),
+              const Spacer(),
+              if (showExpire)
+                Text(
+                  '到期: ${_formatExpDate(expDate)}',
+                  style: TextStyle(
+                    color: _isExpiringSoon(expDate) ? Colors.orange : theme.hintColor,
+                    fontSize: 12,
+                  ),
+                ),
+            ],
+          ));
+          break;
+          
+        case 'expire_date':
+          // 已在specs中处理
+          break;
+          
+        case 'cpu_usage':
+          if (status == 'running') {
+            final showMem = layout.any((e) => e.id == 'mem_usage' && e.enabled);
+            children.add(const SizedBox(height: 12));
+            children.add(Row(
+              children: [
+                Expanded(child: _buildUsageIndicator('CPU', cpuUsage, Colors.blue, theme)),
+                if (showMem) ...[
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildUsageIndicator('内存', memUsage, Colors.purple, theme)),
+                ],
+              ],
+            ));
+          }
+          break;
+          
+        case 'mem_usage':
+          // 已在cpu_usage中处理
+          break;
+      }
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
     );
   }
 
@@ -608,11 +673,16 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
     final status = server['Status'] ?? 'unknown';
     final ip = server['MainIPv4'] ?? '';
     
+    // 从Plan获取总内存
+    final plan = server['Plan'] as Map<String, dynamic>? ?? {};
+    final memory = plan['memory'] ?? 0;
+    
     final usageData = server['UsageData'] as Map<String, dynamic>? ?? {};
     final cpuUsage = (usageData['CPU'] as num?)?.toDouble() ?? 0;
-    final maxMem = usageData['MaxMem'] as int? ?? 1;
-    final freeMem = usageData['FreeMem'] as int? ?? 0;
-    final memUsage = maxMem > 0 ? ((maxMem - freeMem) / maxMem * 100) : 0;
+    final freeMem = (usageData['FreeMem'] as num?)?.toInt() ?? 0;
+    // 使用Plan中的memory（MB）作为总内存，转换为字节
+    final totalMemBytes = (memory as num) * 1024 * 1024;
+    final memUsage = totalMemBytes > 0 ? ((totalMemBytes - freeMem) / totalMemBytes * 100).clamp(0, 100) : 0;
 
     Color statusColor = Colors.grey;
     if (status == 'running') {

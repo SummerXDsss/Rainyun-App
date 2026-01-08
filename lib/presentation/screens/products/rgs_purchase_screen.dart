@@ -41,8 +41,14 @@ class _RgsPurchaseScreenState extends State<RgsPurchaseScreen> {
           _coupons = data.where((c) {
             final scenes = c['usable_scenes']?.toString() ?? '';
             final expDate = c['exp_date'] ?? 0;
+            final useDate = c['use_date']; // 已使用的优惠券
             final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-            return scenes.contains('create') && expDate > now;
+            
+            // 已使用的优惠券不显示
+            if (useDate != null && useDate > 0) return false;
+            
+            // expDate = 0 表示永久有效，expDate > now 表示未过期
+            return scenes.contains('create') && (expDate == 0 || expDate > now);
           }).map((c) => Map<String, dynamic>.from(c)).toList();
         });
       }
@@ -117,7 +123,7 @@ class _RgsPurchaseScreenState extends State<RgsPurchaseScreen> {
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: const Text('免费试用'),
+                    child: const Text('1 元试用'),
                   ),
                 ),
                 const SizedBox(width: 16),

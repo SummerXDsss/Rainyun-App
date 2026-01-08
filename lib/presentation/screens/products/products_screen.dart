@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdesign_flutter/tdesign_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/services/rainyun_api_service.dart';
 import 'rcs_purchase_screen.dart';
 import 'rgs_purchase_screen.dart';
@@ -65,8 +66,13 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> with SingleTick
     try {
       final response = await _apiService.get('/product/$productKey/plans');
       if (response['code'] == 200) {
+        final plans = List<dynamic>.from(response['data'] ?? []);
+        // 调试：打印第一个套餐的所有字段
+        if (plans.isNotEmpty) {
+          debugPrint('套餐数据示例: ${plans.first}');
+        }
         setState(() {
-          _plansCache[productKey] = List<dynamic>.from(response['data'] ?? []);
+          _plansCache[productKey] = plans;
           _loadingStates[productKey] = false;
         });
       } else {
@@ -118,6 +124,44 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> with SingleTick
                 ],
               ),
             ),
+            // 官网购买提示横幅
+            GestureDetector(
+              onTap: () => _openRainyunWebsite(),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [theme.primaryColor, theme.primaryColor.withOpacity(0.8)],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: Colors.white, size: 20),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        '购买产品请前往官网，APP仅支持试用',
+                        style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        '前往官网',
+                        style: TextStyle(color: theme.primaryColor, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             // Tab栏
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -229,7 +273,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> with SingleTick
   Widget _buildPlanCard(dynamic plan, String productKey, Map<String, dynamic> productType, ThemeData theme, Color cardColor) {
     final name = plan['chinese'] ?? plan['plan_name'] ?? '未命名套餐';
     final price = plan['price'] ?? 0;
-    final region = plan['region'] ?? '';
+    // 尝试多个可能的字段名获取地区信息
+    final region = plan['region'] ?? plan['area'] ?? plan['zone'] ?? plan['Region'] ?? plan['Area'] ?? '';
     final stock = plan['available_stock'] ?? 0;
     final color = productType['color'] as Color;
 
@@ -330,22 +375,13 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> with SingleTick
               ],
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: stock > 0 ? () => _navigateToPurchase(plan, productKey, true) : null,
-                    child: const Text('试用'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: stock > 0 ? () => _navigateToPurchase(plan, productKey, false) : null,
-                    child: const Text('购买'),
-                  ),
-                ),
-              ],
+            // 只显示试用按钮
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: stock > 0 ? () => _navigateToPurchase(plan, productKey, true) : null,
+                child: const Text('1 元试用'),
+              ),
             ),
           ],
         ),
@@ -354,6 +390,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> with SingleTick
   }
 
   String _getRegionName(String region) {
+    if (region.isEmpty) return '';
+    
     const regionMap = {
       // 美国
       'us-la1': '🇺🇸 美国洛杉矶',
@@ -387,7 +425,34 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> with SingleTick
       // 德国
       'de-fr1': '🇩🇪 德国法兰克福',
     };
-    return regionMap[region] ?? region;
+    
+    if (regionMap.containsKey(region)) {
+      return regionMap[region]!;
+    }
+    
+    // 如果不在map中，根据前缀推断地区
+    if (region.startsWith('cn-')) return '🇨🇳 中国';
+    if (region.startsWith('us-')) return '🇺🇸 美国';
+    if (region.startsWith('hk-')) return '🇭🇰 香港';
+    if (region.startsWith('tw-')) return '🇹🇼 台湾';
+    if (region.startsWith('jp-')) return '🇯🇵 日本';
+    if (region.startsWith('kr-')) return '🇰🇷 韩国';
+    if (region.startsWith('sg-')) return '🇸🇬 新加坡';
+    if (region.startsWith('de-')) return '🇩🇪 德国';
+    
+    return region;
+  }
+
+  // 打开雨云官网
+  Future<void> _openRainyunWebsite() async {
+    final uri = Uri.parse('https://www.rainyun.com/');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        TDToast.showFail('无法打开链接', context: context);
+      }
+    }
   }
 
   void _navigateToPurchase(dynamic plan, String productKey, bool isTrial) {
