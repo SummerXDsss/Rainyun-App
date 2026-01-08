@@ -266,7 +266,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       context,
                       icon: Icons.account_balance_wallet,
                       title: '我的余额',
-                      subtitle: '¥${_rainyunUser?.balance.toStringAsFixed(2) ?? '0.00'}',
+                      subtitle: '¥${_rainyunUser?.balance.toStringAsFixed(2) ?? '0.00'}  |  ${_rainyunUser?.points ?? 0} 积分',
                       onTap: () => _showBalanceDialog(),
                     ),
                     const Divider(height: 1),
@@ -275,19 +275,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       icon: Icons.card_giftcard,
                       title: '我的优惠券',
                       onTap: () => _showCouponsSheet(),
-                    ),
-                    const Divider(height: 1),
-                    _buildMenuItem(
-                      context,
-                      icon: Icons.stars,
-                      title: '积分中心',
-                      subtitle: '${_rainyunUser?.points ?? 0} 积分',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const PointsScreen()),
-                        );
-                      },
                     ),
                     const Divider(height: 1),
                     _buildMenuItem(
