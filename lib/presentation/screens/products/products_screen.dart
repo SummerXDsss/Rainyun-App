@@ -752,22 +752,12 @@ class _RegionPlansViewState extends State<_RegionPlansView> {
               ),
             ],
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: stock > 0 ? () => widget.navigateToPurchase(plan, widget.productKey, true) : null,
-                    child: const Text('试用'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: stock > 0 ? () => widget.navigateToPurchase(plan, widget.productKey, false) : null,
-                    child: const Text('购买'),
-                  ),
-                ),
-              ],
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: stock > 0 ? () => widget.navigateToPurchase(plan, widget.productKey, true) : null,
+                child: const Text('1 元试用'),
+              ),
             ),
           ],
         ),

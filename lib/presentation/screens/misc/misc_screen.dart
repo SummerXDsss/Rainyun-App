@@ -35,26 +35,6 @@ class _MiscScreenState extends State<MiscScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 积分与奖励
-            _buildSectionTitle('积分与奖励'),
-            Container(
-              decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: _buildListItem(
-                icon: Icons.stars,
-                iconColor: Colors.orange,
-                title: '积分中心',
-                subtitle: '完成任务赚积分，兑换产品和优惠券',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PointsScreen()),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
             // 推广与邀请
             _buildSectionTitle('推广与邀请'),
             Container(
