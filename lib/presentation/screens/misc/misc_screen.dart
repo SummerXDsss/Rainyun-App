@@ -316,75 +316,89 @@ class _MiscScreenState extends State<MiscScreen> {
   void _showMyInvitesDialog() async {
     try {
       TDToast.showLoading(context: context, text: '加载中...');
-      final response = await _apiService.get('/user/invites');
+      
+      // 获取用户信息中的邀请数据
+      final userResponse = await _apiService.getUserInfo();
       TDToast.dismissLoading();
       
       if (!mounted) return;
       
       List<dynamic> invites = [];
       int totalReward = 0;
-      if (response['code'] == 200) {
-        invites = response['data'] ?? [];
-        for (var invite in invites) {
-          totalReward += (invite['reward'] ?? 0) as int;
-        }
+      int inviteCount = 0;
+      
+      if (userResponse['code'] == 200) {
+        final userData = userResponse['data'];
+        inviteCount = userData['InviteCount'] ?? 0;
+        totalReward = userData['InviteReward'] ?? 0;
       }
       
       showModalBottomSheet(
         context: context,
-        isScrollControlled: true,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
-        builder: (context) => DraggableScrollableSheet(
-          initialChildSize: 0.6,
-          minChildSize: 0.4,
-          maxChildSize: 0.9,
-          expand: false,
-          builder: (context, scrollController) => Column(
+        builder: (context) => Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
+              const Text('我的邀请', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildInviteStatCard('邀请人数', '$inviteCount', Icons.people, Colors.blue),
+                  _buildInviteStatCard('累计奖励', '$totalReward', Icons.stars, Colors.orange),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Container(
                 padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
                   children: [
-                    const Text('我的邀请', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text('总奖励: $totalReward 积分', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w500)),
+                    const Text('邀请好友注册雨云', style: TextStyle(fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 8),
+                    Text(
+                      '好友消费可获得推广返利',
+                      style: TextStyle(color: Theme.of(context).hintColor, fontSize: 13),
+                    ),
                   ],
                 ),
               ),
-              const Divider(height: 1),
-              Expanded(
-                child: invites.isEmpty
-                    ? const Center(child: Text('暂无邀请记录'))
-                    : ListView.builder(
-                        controller: scrollController,
-                        itemCount: invites.length,
-                        itemBuilder: (context, index) {
-                          final invite = invites[index];
-                          final username = invite['username'] ?? '用户${invite['uid']}';
-                          final reward = invite['reward'] ?? 0;
-                          final time = invite['create_time'] ?? '';
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.blue.withOpacity(0.1),
-                              child: const Icon(Icons.person, color: Colors.blue),
-                            ),
-                            title: Text(username),
-                            subtitle: Text(time.toString()),
-                            trailing: Text('+$reward 积分', style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
-                          );
-                        },
-                      ),
-              ),
+              const SizedBox(height: 16),
             ],
           ),
         ),
       );
     } catch (e) {
       TDToast.dismissLoading();
-      TDToast.showFail('获取邀请记录失败', context: context);
+      TDToast.showFail('获取邀请信息失败', context: context);
     }
+  }
+
+  Widget _buildInviteStatCard(String label, String value, IconData icon, Color color) {
+    return Container(
+      width: 140,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 32),
+          const SizedBox(height: 8),
+          Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(color: Theme.of(context).hintColor, fontSize: 12)),
+        ],
+      ),
+    );
   }
 
   // 网络测速对话框

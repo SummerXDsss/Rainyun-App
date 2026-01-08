@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdesign_flutter/tdesign_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/rainyun_api_service.dart';
+import '../settings/personalization_screen.dart';
 import 'server_detail_screen.dart';
 
 class ServersScreen extends ConsumerStatefulWidget {
@@ -13,15 +15,123 @@ class ServersScreen extends ConsumerStatefulWidget {
 
 class _ServersScreenState extends ConsumerState<ServersScreen> {
   final _apiService = RainyunApiService();
+  final _supabase = Supabase.instance.client;
   bool _isLoading = false;
   List<Map<String, dynamic>> _servers = [];
+  Map<String, String> _serverAliases = {};  // 服务器别名缓存
   String? _error;
+
+  // 服务器类型中文名称映射
+  static const Map<String, String> _typeNames = {
+    'RCS': '云服务器',
+    'RGS': '游戏云',
+    'RDS': '数据库',
+    'NAS': 'NAS存储',
+    'RCDN': 'CDN加速',
+  };
 
   @override
   void initState() {
     super.initState();
+    _loadAliases();
     _loadServers();
   }
+
+  // 加载服务器别名
+  Future<void> _loadAliases() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+    
+    try {
+      final response = await _supabase
+          .from('server_aliases')
+          .select()
+          .eq('user_id', user.id);
+      
+      final aliases = <String, String>{};
+      for (final row in response) {
+        final key = '${row['server_type']}_${row['server_id']}';
+        aliases[key] = row['alias'] as String;
+      }
+      setState(() => _serverAliases = aliases);
+    } catch (e) {
+      debugPrint('加载别名失败: $e');
+    }
+  }
+
+  // 获取服务器显示名称
+  String _getDisplayName(Map<String, dynamic> server) {
+    final type = server['type'] ?? 'RCS';
+    final id = server['ID']?.toString() ?? '';
+    final key = '${type}_$id';
+    
+    // 优先使用自定义别名
+    if (_serverAliases.containsKey(key)) {
+      return _serverAliases[key]!;
+    }
+    return server['HostName'] ?? '未命名';
+  }
+
+  // 编辑服务器别名
+  Future<void> _editServerAlias(Map<String, dynamic> server) async {
+    final type = server['type'] ?? 'RCS';
+    final id = server['ID']?.toString() ?? '';
+    final key = '${type}_$id';
+    final currentName = _getDisplayName(server);
+    
+    final controller = TextEditingController(text: currentName);
+    
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('编辑服务器名称'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: '服务器名称',
+            hintText: '输入自定义名称',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    
+    if (result != null && result.isNotEmpty && result != currentName) {
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        TDToast.showFail('请先登录', context: context);
+        return;
+      }
+      
+      try {
+        await _supabase.from('server_aliases').upsert({
+          'user_id': user.id,
+          'server_id': id,
+          'server_type': type,
+          'alias': result,
+          'updated_at': DateTime.now().toIso8601String(),
+        }, onConflict: 'user_id,server_id,server_type');
+        
+        setState(() => _serverAliases[key] = result);
+        TDToast.showSuccess('名称已保存', context: context);
+      } catch (e) {
+        TDToast.showFail('保存失败', context: context);
+      }
+    }
+  }
+
+  // 获取类型中文名称
+  String _getTypeName(String type) => _typeNames[type] ?? type;
 
   Future<void> _loadServers() async {
     if (!_apiService.hasApiKey()) {
@@ -239,6 +349,27 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
       );
     }
 
+    final cardStyle = ref.watch(cardStyleProvider);
+    
+    if (cardStyle == 'dashboard') {
+      // 仪表盘样式 - 网格布局
+      return GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 0.85,
+        ),
+        itemCount: _servers.length,
+        itemBuilder: (context, index) {
+          final server = _servers[index];
+          return _buildDashboardCard(server, theme);
+        },
+      );
+    }
+    
+    // 列表样式
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: _servers.length,
@@ -254,7 +385,8 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
     final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     
     final type = server['type'] ?? 'RCS';
-    final hostName = server['HostName'] ?? '未命名';
+    final displayName = _getDisplayName(server);  // 使用别名或原名
+    final typeName = _getTypeName(type);  // 中文类型名称
     final status = server['Status'] ?? 'unknown';
     final ip = server['MainIPv4'] ?? '';
     final expDate = server['ExpDate'] as int? ?? 0;
@@ -270,6 +402,13 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
     final memory = plan['memory'] ?? 0;
     final netIn = server['NetIn'] ?? 0;
     final netOut = server['NetOut'] ?? 0;
+    
+    // 使用率信息
+    final usageData = server['UsageData'] as Map<String, dynamic>? ?? {};
+    final cpuUsage = (usageData['CPU'] as num?)?.toDouble() ?? 0;
+    final maxMem = usageData['MaxMem'] as int? ?? 1;
+    final freeMem = usageData['FreeMem'] as int? ?? 0;
+    final memUsage = maxMem > 0 ? ((maxMem - freeMem) / maxMem * 100) : 0;
 
     Color statusColor = Colors.grey;
     String statusText = '未知';
@@ -290,6 +429,7 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
           ),
         );
       },
+      onLongPress: () => _editServerAlias(server),  // 长按编辑名称
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
@@ -311,7 +451,7 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      type,
+                      typeName,  // 使用中文类型名称
                       style: TextStyle(
                         fontSize: 12,
                         color: theme.colorScheme.onPrimaryContainer,
@@ -322,7 +462,7 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      hostName,
+                      displayName,  // 使用自定义名称或原名
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -391,10 +531,51 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
                   ),
                 ],
               ),
+              
+              // 第四行：CPU/内存使用率（仅运行中显示）
+              if (status == 'running') ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildUsageIndicator('CPU', cpuUsage, Colors.blue, theme),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildUsageIndicator('内存', memUsage.toDouble(), Colors.purple, theme),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildUsageIndicator(String label, double percentage, Color color, ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: TextStyle(fontSize: 11, color: theme.hintColor)),
+            Text('${percentage.toStringAsFixed(0)}%', style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(2),
+          child: LinearProgressIndicator(
+            value: (percentage / 100).clamp(0, 1),
+            backgroundColor: theme.hintColor.withOpacity(0.1),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+            minHeight: 4,
+          ),
+        ),
+      ],
     );
   }
 
@@ -413,6 +594,126 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
           Text(text, style: TextStyle(fontSize: 12, color: theme.hintColor)),
         ],
       ),
+    );
+  }
+
+  // 仪表盘样式卡片
+  Widget _buildDashboardCard(Map<String, dynamic> server, ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    
+    final type = server['type'] ?? 'RCS';
+    final displayName = _getDisplayName(server);
+    final typeName = _getTypeName(type);
+    final status = server['Status'] ?? 'unknown';
+    
+    final usageData = server['UsageData'] as Map<String, dynamic>? ?? {};
+    final cpuUsage = (usageData['CPU'] as num?)?.toDouble() ?? 0;
+    final maxMem = usageData['MaxMem'] as int? ?? 1;
+    final freeMem = usageData['FreeMem'] as int? ?? 0;
+    final memUsage = maxMem > 0 ? ((maxMem - freeMem) / maxMem * 100) : 0;
+
+    Color statusColor = Colors.grey;
+    if (status == 'running') {
+      statusColor = Colors.green;
+    } else if (status == 'stopped') {
+      statusColor = Colors.red;
+    }
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => ServerDetailScreen(server: server)),
+        );
+      },
+      onLongPress: () => _editServerAlias(server),
+      child: Container(
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 顶部状态条
+            Container(
+              height: 4,
+              decoration: BoxDecoration(
+                color: statusColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 类型标签
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        typeName,
+                        style: TextStyle(fontSize: 10, color: theme.colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // 名称
+                    Text(
+                      displayName,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const Spacer(),
+                    // CPU使用率
+                    if (status == 'running') ...[
+                      _buildMiniGauge('CPU', cpuUsage, Colors.blue),
+                      const SizedBox(height: 8),
+                      _buildMiniGauge('内存', memUsage.toDouble(), Colors.purple),
+                    ] else
+                      Center(
+                        child: Text(
+                          status == 'stopped' ? '已停止' : '未知',
+                          style: TextStyle(color: theme.hintColor),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniGauge(String label, double value, Color color) {
+    return Row(
+      children: [
+        SizedBox(width: 28, child: Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[600]))),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: (value / 100).clamp(0, 1),
+              backgroundColor: color.withOpacity(0.1),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+              minHeight: 6,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        SizedBox(
+          width: 32,
+          child: Text('${value.toStringAsFixed(0)}%', style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
+        ),
+      ],
     );
   }
 

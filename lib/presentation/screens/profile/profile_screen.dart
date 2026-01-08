@@ -256,6 +256,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   children: [
                     _buildMenuItem(
                       context,
+                      icon: Icons.workspace_premium,
+                      title: '会员等级',
+                      subtitle: _rainyunUser != null ? _getVipTitle(_rainyunUser!.vipLevel) : '加载中',
+                      onTap: () => _showVipLevelSheet(),
+                    ),
+                    const Divider(height: 1),
+                    _buildMenuItem(
+                      context,
                       icon: Icons.account_balance_wallet,
                       title: '我的余额',
                       subtitle: '¥${_rainyunUser?.balance.toStringAsFixed(2) ?? '0.00'}',
@@ -292,9 +300,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     _buildMenuItem(
                       context,
                       icon: Icons.vpn_key,
-                      title: '绑定 API Key',
+                      title: 'API Key 管理',
+                      subtitle: '多账号切换、云端同步',
                       onTap: () {
-                        _showBindApiKeyDialog(context).then((_) => _loadUserInfo());
+                        Navigator.pushNamed(context, '/api_keys').then((_) => _loadUserInfo());
                       },
                     ),
                     const Divider(height: 1),
@@ -303,6 +312,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       icon: Icons.lock,
                       title: '修改密码',
                       onTap: () => _showChangePasswordDialog(context, _authService),
+                    ),
+                    const Divider(height: 1),
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.palette,
+                      title: '个性化设置',
+                      subtitle: '主题、卡片样式、云端同步',
+                      onTap: () {
+                        Navigator.pushNamed(context, '/personalization');
+                      },
                     ),
                   ],
                 ),
@@ -699,6 +718,258 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  // 获取VIP等级标题
+  String _getVipTitle(int level) {
+    const titles = ['基础用户', 'Ⅰ级会员', 'Ⅱ级会员', 'Ⅲ级会员', 'Ⅳ级会员', 'Ⅴ级会员'];
+    return level >= 0 && level < titles.length ? titles[level] : '未知等级';
+  }
+
+  // 会员等级详情
+  void _showVipLevelSheet() async {
+    TDToast.showLoading(context: context, text: '加载中...');
+    try {
+      // 获取当前VIP配置和所有VIP配置
+      final currentResponse = await _apiService.get('/user/vip/');
+      final allResponse = await _apiService.get('/user/vip/list');
+      TDToast.dismissLoading();
+      
+      if (!mounted) return;
+      
+      Map<String, dynamic> currentVip = {};
+      Map<String, dynamic> allVips = {};
+      
+      if (currentResponse['code'] == 200) {
+        currentVip = currentResponse['data'] ?? {};
+      }
+      if (allResponse['code'] == 200) {
+        allVips = Map<String, dynamic>.from(allResponse['data'] ?? {});
+      }
+      
+      final userLevel = _rainyunUser?.vipLevel ?? 0;
+      final userSale = _rainyunUser?.totalSale ?? 0.0;
+      final userResell = _rainyunUser?.totalResell ?? 0.0;
+      
+      // 获取下一级的配置
+      Map<String, dynamic>? nextVip;
+      if (userLevel < 5 && allVips.containsKey('${userLevel + 1}')) {
+        nextVip = Map<String, dynamic>.from(allVips['${userLevel + 1}']);
+      }
+      
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (context) => DraggableScrollableSheet(
+          initialChildSize: 0.75,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            final theme = Theme.of(context);
+            return SingleChildScrollView(
+              controller: scrollController,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 标题
+                  Center(
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: theme.hintColor.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text('会员等级', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // 当前等级卡片
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: _getVipColors(userLevel),
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.workspace_premium, color: Colors.white, size: 40),
+                            const SizedBox(width: 12),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _getVipTitle(userLevel),
+                                  style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                                ),
+                                Text(
+                                  currentVip['AgentTitle'] ?? '',
+                                  style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        if (nextVip != null) ...[
+                          const SizedBox(height: 20),
+                          // 升级进度
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('升级到 ${nextVip['Title']}', style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 13)),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              // 消费进度
+                              _buildVipProgressBar('消费额', userSale, (nextVip['SaleRequire'] ?? 0).toDouble()),
+                              const SizedBox(height: 8),
+                              // 推广进度
+                              _buildVipProgressBar('推广额', userResell, (nextVip['ResellRequire'] ?? 0).toDouble()),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // 升级条件
+                  if (nextVip != null) ...[
+                    const Text('升级条件', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: theme.hintColor.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildConditionRow('消费额度', '¥${userSale.toStringAsFixed(0)} / ¥${nextVip['SaleRequire']}', 
+                            userSale >= (nextVip['SaleRequire'] ?? 0)),
+                          const SizedBox(height: 8),
+                          _buildConditionRow('推广额度', '¥${userResell.toStringAsFixed(0)} / ¥${nextVip['ResellRequire']}',
+                            userResell >= (nextVip['ResellRequire'] ?? 0)),
+                          if (nextVip['CertifyRequired'] == true) ...[
+                            const SizedBox(height: 8),
+                            _buildConditionRow('实名认证', _rainyunUser?.isVerified == true ? '已完成' : '未完成',
+                              _rainyunUser?.isVerified == true),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                  
+                  // 当前权益
+                  const Text('会员权益', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: theme.hintColor.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildBenefitRow('推广返利', '${((currentVip['SaleProfit'] ?? 0) * 100).toStringAsFixed(0)}%'),
+                        _buildBenefitRow('下级返利', '${((currentVip['ResellProfit'] ?? 0) * 100).toStringAsFixed(0)}%'),
+                        _buildBenefitRow('免费域名', '${currentVip['FreeDomainCount'] ?? 0}个'),
+                        _buildBenefitRow('免费SSL', '${currentVip['FreeSSLCount'] ?? 0}个'),
+                        _buildBenefitRow('发放优惠券', currentVip['CanSendCoupons'] == true ? '✓' : '✗'),
+                        _buildBenefitRow('自定义邀请码', currentVip['CanCustomCode'] == true ? '✓' : '✗'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    } catch (e) {
+      TDToast.dismissLoading();
+      TDToast.showFail('获取会员信息失败', context: context);
+    }
+  }
+
+  Widget _buildVipProgressBar(String label, double current, double total) {
+    final progress = total > 0 ? (current / total).clamp(0.0, 1.0) : 0.0;
+    final remaining = (total - current).clamp(0, double.infinity);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12)),
+            Text(remaining > 0 ? '还需 ¥${remaining.toStringAsFixed(0)}' : '已达成',
+              style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 11)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            value: progress,
+            backgroundColor: Colors.white.withOpacity(0.2),
+            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+            minHeight: 6,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConditionRow(String label, String value, bool isMet) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label),
+        Row(
+          children: [
+            Text(value, style: TextStyle(color: isMet ? Colors.green : Colors.orange, fontWeight: FontWeight.w500)),
+            const SizedBox(width: 4),
+            Icon(isMet ? Icons.check_circle : Icons.radio_button_unchecked, 
+              color: isMet ? Colors.green : Colors.orange, size: 16),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBenefitRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: Theme.of(context).hintColor)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
   // 优惠券列表
   void _showCouponsSheet() async {
     TDToast.showLoading(context: context, text: '加载中...');
@@ -768,7 +1039,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final type = coupon['type'] ?? '';
     final value = coupon['value'] ?? 0;
     final expDate = coupon['exp_date'] ?? 0;
+    final useDate = coupon['use_date']; // 使用日期，有值表示已使用
     final color = coupon['color'] ?? 'info';
+    
+    // 判断是否已使用
+    final bool isUsed = useDate != null && useDate > 0;
+    
+    // 判断是否已过期
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final bool isExpired = expDate > 0 && expDate < now;
     
     // 格式化到期时间
     String expStr = '永久有效';
@@ -777,20 +1056,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       expStr = '${date.year}/${date.month}/${date.day}到期';
     }
     
-    // 获取颜色
+    // 获取颜色（已使用或过期显示灰色）
     Color cardColor;
-    switch (color) {
-      case 'success':
-        cardColor = Colors.green;
-        break;
-      case 'warning':
-        cardColor = Colors.orange;
-        break;
-      case 'danger':
-        cardColor = Colors.red;
-        break;
-      default:
-        cardColor = Colors.blue;
+    if (isUsed || isExpired) {
+      cardColor = Colors.grey;
+    } else {
+      switch (color) {
+        case 'success':
+          cardColor = Colors.green;
+          break;
+        case 'warning':
+          cardColor = Colors.orange;
+          break;
+        case 'danger':
+          cardColor = Colors.red;
+          break;
+        default:
+          cardColor = Colors.blue;
+      }
     }
     
     // 优惠券值描述
@@ -814,40 +1097,70 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ],
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Stack(
         children: [
-          // 优惠券图标
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: cardColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(30),
+          // 已使用/已过期标签
+          if (isUsed || isExpired)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  isUsed ? '已使用' : '已过期',
+                  style: const TextStyle(color: Colors.white, fontSize: 10),
+                ),
+              ),
             ),
-            child: Icon(Icons.card_giftcard, color: cardColor, size: 32),
-          ),
-          const SizedBox(height: 12),
-          // 优惠券名称
-          Text(
-            name,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-          ),
-          if (valueStr.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              valueStr,
-              style: TextStyle(color: cardColor, fontWeight: FontWeight.bold, fontSize: 16),
+          // 优惠券内容
+          Opacity(
+            opacity: (isUsed || isExpired) ? 0.5 : 1.0,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // 优惠券图标
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: cardColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Icon(Icons.card_giftcard, color: cardColor, size: 32),
+                  ),
+                  const SizedBox(height: 12),
+                  // 优惠券名称
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text(
+                      name,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  if (valueStr.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      valueStr,
+                      style: TextStyle(color: cardColor, fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  // 到期时间
+                  Text(
+                    expStr,
+                    style: TextStyle(color: Theme.of(context).hintColor, fontSize: 11),
+                  ),
+                ],
+              ),
             ),
-          ],
-          const SizedBox(height: 8),
-          // 到期时间
-          Text(
-            expStr,
-            style: TextStyle(color: Theme.of(context).hintColor, fontSize: 11),
           ),
         ],
       ),

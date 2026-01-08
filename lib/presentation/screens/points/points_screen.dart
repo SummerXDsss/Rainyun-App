@@ -18,11 +18,12 @@ class _PointsScreenState extends State<PointsScreen> with SingleTickerProviderSt
   int _userPoints = 0;
   List<Map<String, dynamic>> _tasks = [];
   Map<String, List<dynamic>> _products = {};
+  List<Map<String, dynamic>> _pointsLogs = [];  // 积分记录
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _loadData();
   }
 
@@ -58,6 +59,16 @@ class _PointsScreenState extends State<PointsScreen> with SingleTickerProviderSt
         _products = Map<String, List<dynamic>>.from(
           (productsResponse['data'] as Map).map((k, v) => MapEntry(k.toString(), List<dynamic>.from(v)))
         );
+      }
+
+      // 获取积分记录
+      final logsResponse = await _apiService.get('/user/logs', queryParameters: {
+        'options': '{}',
+        'log_type': 'points',
+      });
+      if (logsResponse['code'] == 200) {
+        final data = logsResponse['data'];
+        _pointsLogs = List<Map<String, dynamic>>.from(data['Records'] ?? []);
       }
 
       setState(() {
@@ -133,6 +144,7 @@ class _PointsScreenState extends State<PointsScreen> with SingleTickerProviderSt
               tabs: const [
                 Tab(text: '积分任务'),
                 Tab(text: '积分兑换'),
+                Tab(text: '积分记录'),
               ],
             ),
           ),
@@ -149,6 +161,7 @@ class _PointsScreenState extends State<PointsScreen> with SingleTickerProviderSt
                         children: [
                           _buildTasksList(theme, isDark),
                           _buildProductsList(theme, isDark),
+                          _buildPointsLogsList(theme, isDark),
                         ],
                       ),
           ),
@@ -517,6 +530,109 @@ class _PointsScreenState extends State<PointsScreen> with SingleTickerProviderSt
               minimumSize: Size.zero,
             ),
             child: const Text('兑换', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 积分记录列表
+  Widget _buildPointsLogsList(ThemeData theme, bool isDark) {
+    if (_pointsLogs.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.history, size: 64, color: theme.hintColor.withOpacity(0.3)),
+            const SizedBox(height: 16),
+            Text('暂无积分记录', style: TextStyle(color: theme.hintColor)),
+            const SizedBox(height: 8),
+            Text('完成任务即可获得积分', style: TextStyle(color: theme.hintColor, fontSize: 12)),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: _pointsLogs.length,
+      itemBuilder: (context, index) {
+        final log = _pointsLogs[index];
+        return _buildLogItem(log, theme, isDark);
+      },
+    );
+  }
+
+  Widget _buildLogItem(Map<String, dynamic> log, ThemeData theme, bool isDark) {
+    final message = log['Message'] ?? log['message'] ?? '积分变动';
+    final points = log['Points'] ?? log['points'] ?? 0;
+    final createdAt = log['CreatedAt'] ?? log['created_at'] ?? '';
+    
+    // 判断是增加还是减少
+    final isIncome = points > 0;
+    
+    // 格式化时间
+    String timeStr = '';
+    if (createdAt is String && createdAt.isNotEmpty) {
+      try {
+        final date = DateTime.parse(createdAt);
+        timeStr = '${date.month}/${date.day} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+      } catch (e) {
+        timeStr = createdAt;
+      }
+    } else if (createdAt is int && createdAt > 0) {
+      final date = DateTime.fromMillisecondsSinceEpoch(createdAt * 1000);
+      timeStr = '${date.month}/${date.day} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: (isIncome ? Colors.green : Colors.red).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              isIncome ? Icons.add_circle_outline : Icons.remove_circle_outline,
+              color: isIncome ? Colors.green : Colors.red,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (timeStr.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    timeStr,
+                    style: TextStyle(color: theme.hintColor, fontSize: 12),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Text(
+            '${isIncome ? '+' : ''}$points',
+            style: TextStyle(
+              color: isIncome ? Colors.green : Colors.red,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
           ),
         ],
       ),

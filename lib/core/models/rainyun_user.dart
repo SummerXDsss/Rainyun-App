@@ -10,6 +10,8 @@ class RainyunUser {
   final String? shareCode;
   final int verified;
   final String? certifyStatus;
+  final double totalSale;    // 累计消费
+  final double totalResell;  // 累计推广
 
   RainyunUser({
     required this.uid,
@@ -23,6 +25,8 @@ class RainyunUser {
     this.shareCode,
     required this.verified,
     this.certifyStatus,
+    this.totalSale = 0,
+    this.totalResell = 0,
   });
 
   factory RainyunUser.fromJson(Map<String, dynamic> json) {
@@ -38,6 +42,8 @@ class RainyunUser {
       shareCode: json['ShareCode'] as String?,
       verified: json['Certify'] as int? ?? 0,
       certifyStatus: json['CertifyStatus'] as String?,
+      totalSale: (json['TotalSale'] as num?)?.toDouble() ?? 0.0,
+      totalResell: (json['TotalResell'] as num?)?.toDouble() ?? 0.0,
     );
   }
 

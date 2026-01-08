@@ -237,7 +237,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 带宽监控图表
+            // 资源监控图表（12小时）
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -251,7 +251,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        '带宽监控 (12小时)',
+                        '资源监控 (12小时)',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       IconButton(
@@ -263,7 +263,7 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildBandwidthChart(theme),
+                  _buildMonitorCharts(theme, netOut),
                 ],
               ),
             ),
@@ -343,11 +343,11 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
                   ),
                   const Divider(height: 1),
                   _buildAdvancedOption(
-                    icon: Icons.stars,
-                    color: Colors.amber,
-                    title: '积分续期',
-                    subtitle: '使用积分延长服务器到期时间',
-                    onTap: () => _showPointRenewDialog(productId, type),
+                    icon: Icons.autorenew,
+                    color: Colors.blue,
+                    title: '续费服务',
+                    subtitle: '延长服务器到期时间',
+                    onTap: () => _showRenewOptionsSheet(productId, type),
                   ),
                 ],
               ),
@@ -430,10 +430,10 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
     );
   }
 
-  Widget _buildBandwidthChart(ThemeData theme) {
+  Widget _buildMonitorCharts(ThemeData theme, int maxBandwidth) {
     if (_isLoadingMonitor) {
       return const SizedBox(
-        height: 150,
+        height: 300,
         child: Center(child: CircularProgressIndicator()),
       );
     }
@@ -454,33 +454,123 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
       );
     }
 
-    // 获取最大值用于计算比例
-    double maxIn = 0, maxOut = 0;
+    // 计算各项峰值
+    double maxCpu = 0, maxMem = 0, maxNetIn = 0, maxNetOut = 0;
     for (var data in _monitorData) {
-      final netIn = ((data['net_in'] ?? 0) / 1024 / 1024 * 8).toDouble(); // Mbps
+      final cpu = (data['cpu'] ?? 0).toDouble();
+      final mem = (data['mem'] ?? 0).toDouble();
+      final netIn = ((data['net_in'] ?? 0) / 1024 / 1024 * 8).toDouble();
       final netOut = ((data['net_out'] ?? 0) / 1024 / 1024 * 8).toDouble();
-      if (netIn > maxIn) maxIn = netIn;
-      if (netOut > maxOut) maxOut = netOut;
+      if (cpu > maxCpu) maxCpu = cpu;
+      if (mem > maxMem) maxMem = mem;
+      if (netIn > maxNetIn) maxNetIn = netIn;
+      if (netOut > maxNetOut) maxNetOut = netOut;
     }
-    final maxValue = (maxIn > maxOut ? maxIn : maxOut).clamp(1.0, double.infinity);
 
     return Column(
       children: [
-        // 图例
+        // CPU 图表
+        _buildChartSection(
+          title: 'CPU 使用率',
+          color: Colors.blue,
+          dataKey: 'cpu',
+          maxValue: 100,
+          unit: '%',
+          peakValue: maxCpu,
+          theme: theme,
+        ),
+        const SizedBox(height: 16),
+        
+        // 内存图表
+        _buildChartSection(
+          title: '内存使用率',
+          color: Colors.purple,
+          dataKey: 'mem',
+          maxValue: 100,
+          unit: '%',
+          peakValue: maxMem,
+          theme: theme,
+        ),
+        const SizedBox(height: 16),
+        
+        // 带宽图表
+        _buildBandwidthSection(theme, maxNetIn, maxNetOut, maxBandwidth),
+      ],
+    );
+  }
+
+  Widget _buildChartSection({
+    required String title,
+    required Color color,
+    required String dataKey,
+    required double maxValue,
+    required String unit,
+    required double peakValue,
+    required ThemeData theme,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _buildLegend('入站', Colors.blue),
-            const SizedBox(width: 24),
-            _buildLegend('出站', Colors.green),
+            Row(
+              children: [
+                Container(width: 12, height: 12, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+                const SizedBox(width: 6),
+                Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+              ],
+            ),
+            Text('峰值: ${peakValue.toStringAsFixed(1)}$unit', style: TextStyle(fontSize: 11, color: theme.hintColor)),
           ],
         ),
-        const SizedBox(height: 12),
-        // 图表
+        const SizedBox(height: 8),
         SizedBox(
-          height: 120,
+          height: 60,
           child: CustomPaint(
-            size: const Size(double.infinity, 120),
+            size: const Size(double.infinity, 60),
+            painter: _SingleLineChartPainter(
+              data: _monitorData,
+              dataKey: dataKey,
+              maxValue: maxValue,
+              color: color,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBandwidthSection(ThemeData theme, double maxIn, double maxOut, int maxBandwidth) {
+    final maxValue = (maxIn > maxOut ? maxIn : maxOut).clamp(1.0, double.infinity);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(width: 12, height: 12, decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(2))),
+                const SizedBox(width: 6),
+                const Text('网络带宽', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+              ],
+            ),
+            Row(
+              children: [
+                _buildLegend('入站', Colors.blue),
+                const SizedBox(width: 12),
+                _buildLegend('出站', Colors.green),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 60,
+          child: CustomPaint(
+            size: const Size(double.infinity, 60),
             painter: _BandwidthChartPainter(
               data: _monitorData,
               maxValue: maxValue,
@@ -489,30 +579,15 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 8),
-        // 时间轴
+        const SizedBox(height: 4),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('12小时前', style: TextStyle(fontSize: 10, color: theme.hintColor)),
-            Text('现在', style: TextStyle(fontSize: 10, color: theme.hintColor)),
+            Text('12小时前', style: TextStyle(fontSize: 9, color: theme.hintColor)),
+            Text('入峰: ${maxIn.toStringAsFixed(1)}M  出峰: ${maxOut.toStringAsFixed(1)}M', 
+              style: TextStyle(fontSize: 9, color: theme.hintColor)),
+            Text('现在', style: TextStyle(fontSize: 9, color: theme.hintColor)),
           ],
-        ),
-        const SizedBox(height: 8),
-        // 峰值信息
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: theme.hintColor.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Text('入站峰值: ${maxIn.toStringAsFixed(2)} Mbps', style: const TextStyle(fontSize: 11)),
-              Text('出站峰值: ${maxOut.toStringAsFixed(2)} Mbps', style: const TextStyle(fontSize: 11)),
-            ],
-          ),
         ),
       ],
     );
@@ -772,11 +847,79 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
     );
   }
 
-  // 积分续期对话框
-  void _showPointRenewDialog(String productId, String type) {
+  // 续费服务选项
+  void _showRenewOptionsSheet(String productId, String type) {
+    final theme = Theme.of(context);
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('续费服务', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('选择续费方式', style: TextStyle(color: theme.hintColor)),
+            const SizedBox(height: 20),
+            
+            // 余额续费
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.account_balance_wallet, color: Colors.blue),
+              ),
+              title: const Text('余额续费'),
+              subtitle: const Text('使用账户余额续费'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.pop(context);
+                _showBalanceRenewDialog(productId, type);
+              },
+            ),
+            const Divider(),
+            
+            // 积分续费
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.stars, color: Colors.amber),
+              ),
+              title: const Text('积分续费'),
+              subtitle: const Text('开发中...'),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text('敬请期待', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              ),
+              enabled: false,
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 余额续费对话框
+  void _showBalanceRenewDialog(String productId, String type) {
     showDialog(
       context: context,
-      builder: (context) => _PointRenewDialog(
+      builder: (context) => _RenewDialog(
         apiService: _apiService,
         productId: productId,
         productType: type.toLowerCase(),
@@ -785,31 +928,32 @@ class _ServerDetailScreenState extends State<ServerDetailScreen> {
   }
 }
 
-// 积分续期对话框
-class _PointRenewDialog extends StatefulWidget {
+// 续费对话框
+class _RenewDialog extends StatefulWidget {
   final RainyunApiService apiService;
   final String productId;
   final String productType;
 
-  const _PointRenewDialog({
+  const _RenewDialog({
     required this.apiService,
     required this.productId,
     required this.productType,
   });
 
   @override
-  State<_PointRenewDialog> createState() => _PointRenewDialogState();
+  State<_RenewDialog> createState() => _RenewDialogState();
 }
 
-class _PointRenewDialogState extends State<_PointRenewDialog> {
+class _RenewDialogState extends State<_RenewDialog> {
   bool _isLoading = true;
   bool _isSubmitting = false;
-  int _userPoints = 0;
-  int _pointsPerDay = 100; // 默认每天100积分
-  int _selectedDays = 1;
+  double _userBalance = 0;
+  Map<String, dynamic> _prices = {};  // 各时长价格
+  int _selectedDuration = 1;  // 默认1个月
   String? _error;
 
-  final List<int> _dayOptions = [1, 3, 7, 15, 30];
+  // 续费时长选项：1、3、6、12个月
+  final List<int> _durationOptions = [1, 3, 6, 12];
 
   @override
   void initState() {
@@ -819,15 +963,20 @@ class _PointRenewDialogState extends State<_PointRenewDialog> {
 
   Future<void> _loadInfo() async {
     try {
-      // 获取用户积分
+      // 获取用户余额
       final userResponse = await widget.apiService.getUserInfo();
       if (userResponse['code'] == 200) {
         final userData = userResponse['data'];
-        _userPoints = userData['Points'] ?? 0;
+        _userBalance = (userData['Money'] as num?)?.toDouble() ?? 0;
       }
 
-      // 尝试获取积分续费价格（如果API支持）
-      // 默认使用100积分/天
+      // 获取续费价格
+      final priceResponse = await widget.apiService.get(
+        '/product/${widget.productType}/${widget.productId}/renew/',
+      );
+      if (priceResponse['code'] == 200) {
+        _prices = Map<String, dynamic>.from(priceResponse['data'] ?? {});
+      }
       
       setState(() {
         _isLoading = false;
@@ -840,13 +989,24 @@ class _PointRenewDialogState extends State<_PointRenewDialog> {
     }
   }
 
-  int get _requiredPoints => _pointsPerDay * _selectedDays;
+  double get _price {
+    // 尝试获取对应时长的价格
+    final key = _selectedDuration.toString();
+    if (_prices.containsKey(key)) {
+      return (_prices[key] as num?)?.toDouble() ?? 0;
+    }
+    // 尝试其他可能的字段名
+    final price = _prices['price_$_selectedDuration'] ?? 
+                  _prices['Price$_selectedDuration'] ?? 
+                  _prices['price'] ?? 0;
+    return (price as num?)?.toDouble() ?? 0;
+  }
 
-  bool get _canRenew => _userPoints >= _requiredPoints;
+  bool get _canRenew => _userBalance >= _price && _price > 0;
 
   Future<void> _doRenew() async {
     if (!_canRenew) {
-      TDToast.showText('积分不足', context: context);
+      TDToast.showText('余额不足', context: context);
       return;
     }
 
@@ -854,27 +1014,25 @@ class _PointRenewDialogState extends State<_PointRenewDialog> {
 
     try {
       final response = await widget.apiService.post(
-        '/product/point_renew',
+        '/product/${widget.productType}/${widget.productId}/renew/',
         data: {
-          'product_id': int.parse(widget.productId),
-          'product_type': widget.productType,
-          'duration_day': _selectedDays,
+          'duration': _selectedDuration,
         },
       );
 
       if (mounted) {
         setState(() => _isSubmitting = false);
         if (response['code'] == 200) {
-          TDToast.showSuccess('续期成功！延长了$_selectedDays天', context: context);
+          TDToast.showSuccess('续费成功！延长了$_selectedDuration个月', context: context);
           Navigator.pop(context, true);
         } else {
-          TDToast.showFail(response['message'] ?? '续期失败', context: context);
+          TDToast.showFail(response['message'] ?? '续费失败', context: context);
         }
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isSubmitting = false);
-        TDToast.showFail('续期失败: $e', context: context);
+        TDToast.showFail('续费失败: $e', context: context);
       }
     }
   }
@@ -886,9 +1044,9 @@ class _PointRenewDialogState extends State<_PointRenewDialog> {
     return AlertDialog(
       title: const Row(
         children: [
-          Icon(Icons.stars, color: Colors.amber),
+          Icon(Icons.autorenew, color: Colors.blue),
           SizedBox(width: 8),
-          Text('积分续期'),
+          Text('续费'),
         ],
       ),
       content: _isLoading
@@ -902,23 +1060,23 @@ class _PointRenewDialogState extends State<_PointRenewDialog> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 当前积分
+                    // 当前余额
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.amber.withOpacity(0.1),
+                        color: Colors.blue.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('当前积分'),
+                          const Text('当前余额'),
                           Text(
-                            '$_userPoints',
+                            '¥${_userBalance.toStringAsFixed(2)}',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 18,
-                              color: Colors.amber,
+                              color: Colors.blue,
                             ),
                           ),
                         ],
@@ -926,19 +1084,22 @@ class _PointRenewDialogState extends State<_PointRenewDialog> {
                     ),
                     const SizedBox(height: 16),
 
-                    // 续期天数选择
-                    const Text('选择续期天数', style: TextStyle(fontWeight: FontWeight.w500)),
+                    // 续费时长选择
+                    const Text('选择续费时长', style: TextStyle(fontWeight: FontWeight.w500)),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: _dayOptions.map((days) {
-                        final isSelected = _selectedDays == days;
-                        final cost = _pointsPerDay * days;
-                        final canAfford = _userPoints >= cost;
+                      children: _durationOptions.map((duration) {
+                        final isSelected = _selectedDuration == duration;
+                        final key = duration.toString();
+                        final price = _prices.containsKey(key) 
+                            ? (_prices[key] as num?)?.toDouble() ?? 0
+                            : 0.0;
+                        final canAfford = _userBalance >= price && price > 0;
                         
                         return GestureDetector(
-                          onTap: canAfford ? () => setState(() => _selectedDays = days) : null,
+                          onTap: canAfford ? () => setState(() => _selectedDuration = duration) : null,
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             decoration: BoxDecoration(
@@ -952,7 +1113,7 @@ class _PointRenewDialogState extends State<_PointRenewDialog> {
                             child: Column(
                               children: [
                                 Text(
-                                  '$days天',
+                                  '$duration个月',
                                   style: TextStyle(
                                     color: isSelected
                                         ? Colors.white
@@ -962,10 +1123,11 @@ class _PointRenewDialogState extends State<_PointRenewDialog> {
                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                   ),
                                 ),
+                                const SizedBox(height: 2),
                                 Text(
-                                  '$cost积分',
+                                  price > 0 ? '¥${price.toStringAsFixed(2)}' : '-',
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 11,
                                     color: isSelected
                                         ? Colors.white70
                                         : canAfford
@@ -993,25 +1155,17 @@ class _PointRenewDialogState extends State<_PointRenewDialog> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('续期天数'),
-                              Text('$_selectedDays 天'),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('单价'),
-                              Text('$_pointsPerDay 积分/天'),
+                              const Text('续费时长'),
+                              Text('$_selectedDuration 个月'),
                             ],
                           ),
                           const Divider(),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('需要积分', style: TextStyle(fontWeight: FontWeight.bold)),
+                              const Text('需支付', style: TextStyle(fontWeight: FontWeight.bold)),
                               Text(
-                                '$_requiredPoints',
+                                '¥${_price.toStringAsFixed(2)}',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 18,
@@ -1024,10 +1178,10 @@ class _PointRenewDialogState extends State<_PointRenewDialog> {
                       ),
                     ),
 
-                    if (!_canRenew) ...[
+                    if (!_canRenew && _price > 0) ...[
                       const SizedBox(height: 8),
                       Text(
-                        '积分不足，还需 ${_requiredPoints - _userPoints} 积分',
+                        '余额不足，还需 ¥${(_price - _userBalance).toStringAsFixed(2)}',
                         style: const TextStyle(color: Colors.red, fontSize: 12),
                       ),
                     ],
@@ -1042,7 +1196,7 @@ class _PointRenewDialogState extends State<_PointRenewDialog> {
           onPressed: _isLoading || _isSubmitting || !_canRenew ? null : _doRenew,
           child: _isSubmitting
               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('确认续期'),
+              : const Text('确认续费'),
         ),
       ],
     );
@@ -1390,6 +1544,77 @@ class _BandwidthChartPainter extends CustomPainter {
 
     canvas.drawPath(inPath, inPaint);
     canvas.drawPath(outPath, outPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+// 单线图表绘制器（用于CPU、内存）
+class _SingleLineChartPainter extends CustomPainter {
+  final List<Map<String, dynamic>> data;
+  final String dataKey;
+  final double maxValue;
+  final Color color;
+
+  _SingleLineChartPainter({
+    required this.data,
+    required this.dataKey,
+    required this.maxValue,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.isEmpty) return;
+
+    // 绘制背景网格
+    final gridPaint = Paint()
+      ..color = Colors.grey.withOpacity(0.1)
+      ..strokeWidth = 1;
+    
+    for (int i = 1; i < 4; i++) {
+      final y = size.height * i / 4;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    // 绘制折线
+    final linePaint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    // 绘制填充区域
+    final fillPaint = Paint()
+      ..color = color.withOpacity(0.1)
+      ..style = PaintingStyle.fill;
+
+    final linePath = Path();
+    final fillPath = Path();
+
+    final step = size.width / (data.length - 1).clamp(1, double.infinity);
+
+    for (int i = 0; i < data.length; i++) {
+      final x = i * step;
+      final value = (data[i][dataKey] ?? 0).toDouble();
+      final y = size.height - (value / maxValue * size.height).clamp(0, size.height);
+
+      if (i == 0) {
+        linePath.moveTo(x, y);
+        fillPath.moveTo(x, size.height);
+        fillPath.lineTo(x, y);
+      } else {
+        linePath.lineTo(x, y);
+        fillPath.lineTo(x, y);
+      }
+    }
+
+    // 完成填充路径
+    fillPath.lineTo(size.width, size.height);
+    fillPath.close();
+
+    canvas.drawPath(fillPath, fillPaint);
+    canvas.drawPath(linePath, linePaint);
   }
 
   @override
