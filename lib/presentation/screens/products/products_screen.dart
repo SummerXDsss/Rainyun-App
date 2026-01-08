@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../core/services/rainyun_api_service.dart';
 
 class ProductsScreen extends ConsumerStatefulWidget {
@@ -10,60 +9,74 @@ class ProductsScreen extends ConsumerStatefulWidget {
   ConsumerState<ProductsScreen> createState() => _ProductsScreenState();
 }
 
-class _ProductsScreenState extends ConsumerState<ProductsScreen> {
+class _ProductsScreenState extends ConsumerState<ProductsScreen> with SingleTickerProviderStateMixin {
   final _apiService = RainyunApiService();
-  bool _isLoading = true;
-  String? _error;
-  Map<String, dynamic> _productStats = {};
+  late TabController _tabController;
 
   // 产品类型配置
   final List<Map<String, dynamic>> _productTypes = [
-    {'key': 'rcs', 'name': '云服务器', 'icon': Icons.cloud_outlined, 'color': Colors.blue, 'url': 'https://rainyun.com/rcs'},
-    {'key': 'rgs', 'name': '游戏云', 'icon': Icons.sports_esports_outlined, 'color': Colors.purple, 'url': 'https://rainyun.com/rgs'},
-    {'key': 'rvh', 'name': '虚拟主机', 'icon': Icons.web_outlined, 'color': Colors.green, 'url': 'https://rainyun.com/rvh'},
-    {'key': 'ros', 'name': '对象存储', 'icon': Icons.storage_outlined, 'color': Colors.orange, 'url': 'https://rainyun.com/ros'},
-    {'key': 'rcdn', 'name': 'CDN加速', 'icon': Icons.speed_outlined, 'color': Colors.red, 'url': 'https://rainyun.com/rcdn'},
-    {'key': 'nat', 'name': 'NAT转发', 'icon': Icons.swap_horiz, 'color': Colors.teal, 'url': 'https://rainyun.com'},
+    {'key': 'rcs', 'name': '云服务器', 'icon': Icons.cloud_outlined},
+    {'key': 'rgs', 'name': '游戏云', 'icon': Icons.sports_esports_outlined},
+    {'key': 'rvh', 'name': '虚拟主机', 'icon': Icons.web_outlined},
+    {'key': 'ros', 'name': '对象存储', 'icon': Icons.storage_outlined},
+    {'key': 'rcdn', 'name': 'CDN加速', 'icon': Icons.speed_outlined},
   ];
+
+  final Map<String, List<dynamic>> _plansCache = {};
+  final Map<String, bool> _loadingStates = {};
+  final Map<String, String?> _errorStates = {};
 
   @override
   void initState() {
     super.initState();
-    _loadProductStats();
+    _tabController = TabController(length: _productTypes.length, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        final key = _productTypes[_tabController.index]['key'] as String;
+        if (!_plansCache.containsKey(key)) {
+          _loadPlans(key);
+        }
+      }
+    });
+    // 加载第一个Tab的数据
+    _loadPlans(_productTypes[0]['key'] as String);
   }
 
-  Future<void> _loadProductStats() async {
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadPlans(String productKey) async {
     if (!_apiService.hasApiKey()) {
       setState(() {
-        _isLoading = false;
-        _error = '请先在"我的"页面绑定API Key';
+        _errorStates[productKey] = '请先在"我的"页面绑定API Key';
       });
       return;
     }
 
     setState(() {
-      _isLoading = true;
-      _error = null;
+      _loadingStates[productKey] = true;
+      _errorStates[productKey] = null;
     });
 
     try {
-      final response = await _apiService.getProductList();
+      final response = await _apiService.get('/product/$productKey/plans');
       final code = response['code'] ?? response['Code'];
       if (code == 200) {
         final data = response['data'] ?? response['Data'];
-        if (data != null) {
-          setState(() {
-            _productStats = Map<String, dynamic>.from(data);
-            _isLoading = false;
-          });
-        }
+        setState(() {
+          _plansCache[productKey] = List<dynamic>.from(data ?? []);
+          _loadingStates[productKey] = false;
+        });
       } else {
-        throw Exception(response['message'] ?? '获取产品列表失败');
+        throw Exception(response['message'] ?? '获取套餐列表失败');
       }
     } catch (e) {
       setState(() {
-        _isLoading = false;
-        _error = e.toString();
+        _loadingStates[productKey] = false;
+        _errorStates[productKey] = e.toString();
       });
     }
   }

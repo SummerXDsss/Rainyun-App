@@ -6,6 +6,7 @@ import '../../../core/services/rainyun_api_service.dart';
 import '../../../core/models/rainyun_user.dart';
 import '../../../core/utils/debug_log_manager.dart';
 import '../auth/login_screen.dart';
+import '../points/points_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -255,6 +256,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   children: [
                     _buildMenuItem(
                       context,
+                      icon: Icons.stars,
+                      title: '积分中心',
+                      subtitle: '${_rainyunUser?.points ?? 0} 积分',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const PointsScreen()),
+                        );
+                      },
+                    ),
+                    const Divider(height: 1),
+                    _buildMenuItem(
+                      context,
                       icon: Icons.refresh,
                       title: '刷新信息',
                       onTap: _loadUserInfo,
@@ -348,6 +362,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     BuildContext context, {
     required IconData icon,
     required String title,
+    String? subtitle,
     Color? textColor,
     required VoidCallback onTap,
   }) {
@@ -357,15 +372,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Icon(icon, color: textColor),
+            Icon(icon, color: textColor ?? Colors.orange),
             const SizedBox(width: 16),
             Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: textColor,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: textColor,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).hintColor,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             Icon(Icons.chevron_right, color: Theme.of(context).hintColor),
