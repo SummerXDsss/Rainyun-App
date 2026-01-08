@@ -2,7 +2,7 @@ name: rainyun_app
 description: Rainyun Cloud Management App with Flutter & TDesign
 publish_to: 'none'
 
-version: 0.0.1+1
+version: 0.1.0+1
 
 environment:
   sdk: '>=3.1.5 <4.0.0'

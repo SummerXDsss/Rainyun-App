@@ -256,6 +256,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   children: [
                     _buildMenuItem(
                       context,
+                      icon: Icons.account_balance_wallet,
+                      title: '我的余额',
+                      subtitle: '¥${_rainyunUser?.balance.toStringAsFixed(2) ?? '0.00'}',
+                      onTap: () => _showBalanceDialog(),
+                    ),
+                    const Divider(height: 1),
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.card_giftcard,
+                      title: '我的优惠券',
+                      onTap: () => _showCouponsSheet(),
+                    ),
+                    const Divider(height: 1),
+                    _buildMenuItem(
+                      context,
                       icon: Icons.stars,
                       title: '积分中心',
                       subtitle: '${_rainyunUser?.points ?? 0} 积分',
@@ -630,5 +645,212 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         }
       }
     }
+  }
+
+  // 余额对话框
+  void _showBalanceDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('我的余额'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.orange, Colors.orange.shade700],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.account_balance_wallet, color: Colors.white, size: 32),
+                  const SizedBox(width: 12),
+                  Text(
+                    '¥${_rainyunUser?.balance.toStringAsFixed(2) ?? '0.00'}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '充值请前往官网',
+              style: TextStyle(color: Theme.of(context).hintColor, fontSize: 13),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 优惠券列表
+  void _showCouponsSheet() async {
+    TDToast.showLoading(context: context, text: '加载中...');
+    try {
+      final response = await _apiService.get('/user/coupons/');
+      TDToast.dismissLoading();
+      
+      if (!mounted) return;
+      
+      List<Map<String, dynamic>> coupons = [];
+      if (response['code'] == 200) {
+        coupons = List<Map<String, dynamic>>.from(response['data'] ?? []);
+      }
+      
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (context) => DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.5,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) => Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('我的优惠券', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text('${coupons.length}张', style: TextStyle(color: Theme.of(context).hintColor)),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: coupons.isEmpty
+                    ? const Center(child: Text('暂无优惠券'))
+                    : GridView.builder(
+                        controller: scrollController,
+                        padding: const EdgeInsets.all(16),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          childAspectRatio: 0.85,
+                        ),
+                        itemCount: coupons.length,
+                        itemBuilder: (context, index) => _buildCouponCard(coupons[index]),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (e) {
+      TDToast.dismissLoading();
+      TDToast.showFail('获取优惠券失败', context: context);
+    }
+  }
+
+  Widget _buildCouponCard(Map<String, dynamic> coupon) {
+    final name = coupon['friendly_name'] ?? '优惠券';
+    final type = coupon['type'] ?? '';
+    final value = coupon['value'] ?? 0;
+    final expDate = coupon['exp_date'] ?? 0;
+    final color = coupon['color'] ?? 'info';
+    
+    // 格式化到期时间
+    String expStr = '永久有效';
+    if (expDate > 0) {
+      final date = DateTime.fromMillisecondsSinceEpoch(expDate * 1000);
+      expStr = '${date.year}/${date.month}/${date.day}到期';
+    }
+    
+    // 获取颜色
+    Color cardColor;
+    switch (color) {
+      case 'success':
+        cardColor = Colors.green;
+        break;
+      case 'warning':
+        cardColor = Colors.orange;
+        break;
+      case 'danger':
+        cardColor = Colors.red;
+        break;
+      default:
+        cardColor = Colors.blue;
+    }
+    
+    // 优惠券值描述
+    String valueStr = '';
+    if (type == 'discount') {
+      valueStr = '${(value * 10).toStringAsFixed(1)}折';
+    } else if (type == 'reduce') {
+      valueStr = '-¥$value';
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cardColor.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // 优惠券图标
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: cardColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: Icon(Icons.card_giftcard, color: cardColor, size: 32),
+          ),
+          const SizedBox(height: 12),
+          // 优惠券名称
+          Text(
+            name,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+          if (valueStr.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              valueStr,
+              style: TextStyle(color: cardColor, fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ],
+          const SizedBox(height: 8),
+          // 到期时间
+          Text(
+            expStr,
+            style: TextStyle(color: Theme.of(context).hintColor, fontSize: 11),
+          ),
+        ],
+      ),
+    );
   }
 }

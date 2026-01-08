@@ -74,7 +74,7 @@ class _PointsScreenState extends State<PointsScreen> with SingleTickerProviderSt
   Future<void> _completeTask(String taskName) async {
     try {
       TDToast.showLoading(context: context, text: '领取中...');
-      final response = await _apiService.post('/user/reward/tasks', data: {'Name': taskName});
+      final response = await _apiService.post('/user/reward/tasks', data: {'task_name': taskName});
       TDToast.dismissLoading();
       
       if (response['code'] == 200) {

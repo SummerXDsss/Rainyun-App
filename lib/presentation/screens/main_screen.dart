@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'servers/servers_screen.dart';
 import 'products/products_screen.dart';
-import 'expense/expense_screen.dart';
 import 'misc/misc_screen.dart';
 import 'profile/profile_screen.dart';
 
@@ -18,7 +17,6 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _screens = [
     const ServersScreen(),
     const ProductsScreen(),
-    const ExpenseScreen(),
     const MiscScreen(),
     const ProfileScreen(),
   ];
@@ -26,7 +24,6 @@ class _MainScreenState extends State<MainScreen> {
   final List<_NavItem> _navItems = const [
     _NavItem(icon: Icons.dns_outlined, selectedIcon: Icons.dns, label: '服务器'),
     _NavItem(icon: Icons.shopping_cart_outlined, selectedIcon: Icons.shopping_cart, label: '产品'),
-    _NavItem(icon: Icons.receipt_long_outlined, selectedIcon: Icons.receipt_long, label: '费用'),
     _NavItem(icon: Icons.apps_outlined, selectedIcon: Icons.apps, label: '杂项'),
     _NavItem(icon: Icons.person_outline, selectedIcon: Icons.person, label: '我的'),
   ];

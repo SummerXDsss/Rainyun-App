@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdesign_flutter/tdesign_flutter.dart';
 import '../../../core/services/rainyun_api_service.dart';
 import 'rcs_purchase_screen.dart';
+import 'rgs_purchase_screen.dart';
 
 class ProductsScreen extends ConsumerStatefulWidget {
   const ProductsScreen({super.key});
@@ -377,6 +378,14 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> with SingleTick
           builder: (_) => RcsPurchaseScreen(plan: Map<String, dynamic>.from(plan)),
         ),
       );
+    } else if (productKey == 'rgs') {
+      // 游戏云使用专门的购买页面
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RgsPurchaseScreen(plan: Map<String, dynamic>.from(plan)),
+        ),
+      );
     } else {
       // 其他产品暂时显示提示
       TDToast.showText('${isTrial ? "试用" : "购买"}功能开发中', context: context);
@@ -478,8 +487,14 @@ class _RegionPlansViewState extends State<_RegionPlansView> {
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
               final region = widget.regions[index];
-              final planCount = widget.plansByRegion[region]?.length ?? 0;
+              final allPlans = widget.plansByRegion[region] ?? [];
+              final planCount = widget.hideOutOfStock 
+                  ? allPlans.where((p) => (p['available_stock'] ?? 0) > 0).length
+                  : allPlans.length;
               final isSelected = _selectedRegion == region;
+              
+              // 如果过滤后没有套餐，不显示该地区标签
+              if (planCount == 0 && widget.hideOutOfStock) return const SizedBox.shrink();
               
               return GestureDetector(
                 onTap: () => _scrollToRegion(region),
@@ -527,7 +542,14 @@ class _RegionPlansViewState extends State<_RegionPlansView> {
               itemCount: widget.regions.length,
               itemBuilder: (context, index) {
                 final region = widget.regions[index];
-                final plans = widget.plansByRegion[region] ?? [];
+                final allPlans = widget.plansByRegion[region] ?? [];
+                // 根据设置过滤缺货项
+                final plans = widget.hideOutOfStock 
+                    ? allPlans.where((p) => (p['available_stock'] ?? 0) > 0).toList()
+                    : allPlans;
+                
+                // 如果过滤后没有套餐，不显示该地区
+                if (plans.isEmpty) return const SizedBox.shrink();
                 
                 return Column(
                   key: _regionKeys[region],
