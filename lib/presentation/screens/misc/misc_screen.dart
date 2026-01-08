@@ -587,7 +587,7 @@ class _DnsQueryDialog extends StatefulWidget {
 
 class _DnsQueryDialogState extends State<_DnsQueryDialog> {
   bool _isQuerying = false;
-  List<String> _results = [];
+  List<Map<String, String>> _results = [];
   String? _error;
 
   Future<void> _query() async {
@@ -605,13 +605,18 @@ class _DnsQueryDialogState extends State<_DnsQueryDialog> {
 
     try {
       final addresses = await InternetAddress.lookup(domain);
+      final results = <Map<String, String>>[];
+      for (final addr in addresses) {
+        final type = addr.type == InternetAddressType.IPv4 ? 'A' : 'AAAA';
+        results.add({'type': type, 'address': addr.address});
+      }
       setState(() {
-        _results = addresses.map((a) => '${a.type.name}: ${a.address}').toList();
+        _results = results;
         _isQuerying = false;
       });
     } catch (e) {
       setState(() {
-        _error = '查询失败: $e';
+        _error = '查询失败: ${e.toString().replaceAll('SocketException: ', '')}';
         _isQuerying = false;
       });
     }
@@ -619,12 +624,16 @@ class _DnsQueryDialogState extends State<_DnsQueryDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
     return AlertDialog(
       title: const Text('DNS查询'),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             TextField(
               controller: widget.controller,
@@ -637,21 +646,61 @@ class _DnsQueryDialogState extends State<_DnsQueryDialog> {
             ),
             const SizedBox(height: 16),
             if (_isQuerying)
-              const CircularProgressIndicator()
+              const Center(child: CircularProgressIndicator())
             else if (_error != null)
-              Text(_error!, style: const TextStyle(color: Colors.red))
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              )
             else if (_results.isNotEmpty)
               Container(
                 constraints: const BoxConstraints(maxHeight: 200),
-                child: ListView.builder(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.black26 : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: _results.length,
-                  itemBuilder: (context, index) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: SelectableText(_results[index]),
-                  ),
+                  separatorBuilder: (_, __) => const Divider(height: 8),
+                  itemBuilder: (context, index) {
+                    final result = _results[index];
+                    return Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: result['type'] == 'A' ? Colors.blue : Colors.purple,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            result['type']!,
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SelectableText(
+                            result['address']!,
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              color: Colors.green[400],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
-              ),
+              )
+            else
+              Text('输入域名后点击查询', style: TextStyle(color: theme.hintColor)),
           ],
         ),
       ),

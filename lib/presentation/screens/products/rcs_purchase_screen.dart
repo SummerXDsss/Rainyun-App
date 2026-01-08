@@ -15,11 +15,14 @@ class _RcsPurchaseScreenState extends State<RcsPurchaseScreen> {
   final _apiService = RainyunApiService();
   
   bool _isLoading = false;
+  bool _isPriceLoading = true;
   List<Map<String, dynamic>> _coupons = [];
   int? _selectedCouponId;
   int _duration = 1; // 购买时长（月）
   double _diskSize = 30; // 硬盘大小（GB）
   bool _isTrial = false; // 是否试用
+  bool _withEip = false; // 是否附加独立IP
+  int _eipNum = 1; // IP数量（当_withEip为true时有效）
   
   // 从套餐获取的信息
   late int _planId;
@@ -27,6 +30,7 @@ class _RcsPurchaseScreenState extends State<RcsPurchaseScreen> {
   late double _diskPrice;
   late double _minDisk;
   late double _maxDisk;
+  double _eipPrice = 10.0; // 独立IP价格（每个/月），从API获取
 
   @override
   void initState() {
@@ -48,6 +52,30 @@ class _RcsPurchaseScreenState extends State<RcsPurchaseScreen> {
     _diskSize = _minDisk;
     
     _loadCoupons();
+    _loadPricing();
+  }
+  
+  Future<void> _loadPricing() async {
+    try {
+      final response = await _apiService.get('/product/rcs/price');
+      if (response['code'] == 200 && response['data'] != null) {
+        final data = response['data'];
+        // 尝试获取独立IP价格
+        if (data['eip_price'] != null) {
+          setState(() {
+            _eipPrice = (data['eip_price'] as num?)?.toDouble() ?? 10.0;
+            _isPriceLoading = false;
+          });
+        } else {
+          setState(() => _isPriceLoading = false);
+        }
+      } else {
+        setState(() => _isPriceLoading = false);
+      }
+    } catch (e) {
+      debugPrint('加载价格失败: $e');
+      setState(() => _isPriceLoading = false);
+    }
   }
 
   Future<void> _loadCoupons() async {
@@ -76,6 +104,12 @@ class _RcsPurchaseScreenState extends State<RcsPurchaseScreen> {
     double extraDisk = _diskSize - _minDisk;
     double diskCost = extraDisk * _diskPrice;
     double monthlyPrice = _basePrice + diskCost;
+    
+    // 独立IP价格
+    if (_withEip) {
+      monthlyPrice += _eipPrice * _eipNum;
+    }
+    
     double total = monthlyPrice * _duration;
     
     // 应用优惠券
@@ -102,7 +136,11 @@ class _RcsPurchaseScreenState extends State<RcsPurchaseScreen> {
   double get _renewPrice {
     double extraDisk = _diskSize - _minDisk;
     double diskCost = extraDisk * _diskPrice;
-    return _basePrice + diskCost;
+    double price = _basePrice + diskCost;
+    if (_withEip) {
+      price += _eipPrice * _eipNum;
+    }
+    return price;
   }
 
   @override
@@ -132,6 +170,10 @@ class _RcsPurchaseScreenState extends State<RcsPurchaseScreen> {
             
             // 硬盘大小选择
             _buildDiskSelector(cardColor, theme),
+            const SizedBox(height: 16),
+            
+            // 独立IP选择
+            _buildEipSelector(cardColor, theme),
             const SizedBox(height: 16),
             
             // 优惠券选择
@@ -335,6 +377,76 @@ class _RcsPurchaseScreenState extends State<RcsPurchaseScreen> {
     );
   }
 
+  Widget _buildEipSelector(Color cardColor, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('独立IP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              Switch(
+                value: _withEip,
+                onChanged: (v) => setState(() => _withEip = v),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _isPriceLoading
+              ? Text(
+                  '正在加载价格...',
+                  style: TextStyle(fontSize: 12, color: theme.hintColor),
+                )
+              : Text(
+                  '附加独立IPv4地址（¥${_eipPrice.toStringAsFixed(0)}/个/月）',
+                  style: TextStyle(fontSize: 12, color: theme.hintColor),
+                ),
+          if (_withEip) ...[
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('IP数量', style: TextStyle(fontSize: 14)),
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: _eipNum > 1 ? () => setState(() => _eipNum--) : null,
+                      icon: const Icon(Icons.remove_circle_outline),
+                      iconSize: 28,
+                    ),
+                    Container(
+                      width: 40,
+                      alignment: Alignment.center,
+                      child: Text(
+                        '$_eipNum',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.primaryColor),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _eipNum < 5 ? () => setState(() => _eipNum++) : null,
+                      icon: const Icon(Icons.add_circle_outline),
+                      iconSize: 28,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            Text(
+              '费用: +¥${(_eipPrice * _eipNum).toStringAsFixed(1)}/月',
+              style: TextStyle(color: theme.primaryColor, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildCouponSelector(Color cardColor, ThemeData theme) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -429,7 +541,8 @@ class _RcsPurchaseScreenState extends State<RcsPurchaseScreen> {
   Widget _buildPriceDetails(Color cardColor, ThemeData theme) {
     final extraDisk = _diskSize - _minDisk;
     final diskCost = extraDisk * _diskPrice;
-    final monthlyBase = _basePrice + diskCost;
+    final eipCost = _withEip ? _eipPrice * _eipNum : 0;
+    final monthlyBase = _basePrice + diskCost + eipCost;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -445,6 +558,8 @@ class _RcsPurchaseScreenState extends State<RcsPurchaseScreen> {
           _buildPriceRow('套餐基础价', '¥$_basePrice/月'),
           if (extraDisk > 0)
             _buildPriceRow('额外硬盘 (+${extraDisk.toInt()}G)', '+¥${diskCost.toStringAsFixed(1)}/月'),
+          if (_withEip)
+            _buildPriceRow('独立IP (${_eipNum}个)', '+¥${eipCost.toStringAsFixed(1)}/月'),
           _buildPriceRow('月费小计', '¥${monthlyBase.toStringAsFixed(1)}/月'),
           _buildPriceRow('购买时长', '$_duration个月'),
           const Divider(height: 20),
@@ -504,6 +619,12 @@ class _RcsPurchaseScreenState extends State<RcsPurchaseScreen> {
         'add_disk_size': (_diskSize - _minDisk).toInt(),
         'try': isTrial,
       };
+      
+      // 独立IP参数
+      if (_withEip) {
+        data['with_eip_num'] = _eipNum;
+        data['with_eip_type'] = 'IPv4';
+      }
       
       if (_selectedCouponId != null && !isTrial) {
         data['with_coupon_id'] = _selectedCouponId!;

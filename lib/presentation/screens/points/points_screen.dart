@@ -83,6 +83,12 @@ class _PointsScreenState extends State<PointsScreen> with SingleTickerProviderSt
   }
 
   Future<void> _completeTask(String taskName) async {
+    // 每日签到需要验证码，引导用户去网页
+    if (taskName == '每日签到') {
+      _showSignInDialog();
+      return;
+    }
+    
     try {
       TDToast.showLoading(context: context, text: '领取中...');
       final response = await _apiService.post('/user/reward/tasks', data: {'task_name': taskName});
@@ -91,13 +97,67 @@ class _PointsScreenState extends State<PointsScreen> with SingleTickerProviderSt
       if (response['code'] == 200) {
         TDToast.showSuccess('领取成功', context: context);
         _loadData(); // 刷新数据
+      } else if (response['code'] == 10004) {
+        // 验证码校验失败，引导去网页
+        _showWebRequiredDialog(taskName);
       } else {
         TDToast.showFail(response['message'] ?? '领取失败', context: context);
       }
     } catch (e) {
       TDToast.dismissLoading();
-      TDToast.showFail('领取失败: $e', context: context);
+      // 检查是否是验证码错误
+      if (e.toString().contains('10004') || e.toString().contains('验证码')) {
+        _showWebRequiredDialog(taskName);
+      } else {
+        TDToast.showFail('领取失败', context: context);
+      }
     }
+  }
+
+  void _showSignInDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('每日签到'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('每日签到需要完成验证码验证，请前往雨云网页端签到。'),
+            SizedBox(height: 12),
+            Text('网址：rainyun.com', style: TextStyle(color: Colors.blue)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('我知道了'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showWebRequiredDialog(String taskName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('需要验证'),
+        content: Text('$taskName 需要完成验证码验证，请前往雨云网页端操作。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

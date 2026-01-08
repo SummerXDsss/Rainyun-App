@@ -281,9 +281,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> with SingleTick
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                      const SizedBox(height: 2),
-                      Text(_getRegionName(region), style: TextStyle(color: theme.hintColor, fontSize: 12)),
+                      Text(
+                        '${_getRegionName(region)} $name',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
@@ -297,17 +300,35 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> with SingleTick
                 ),
               ],
             ),
-            if (specs.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: theme.hintColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(specs, style: TextStyle(color: theme.hintColor, fontSize: 12)),
-              ),
-            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                // 配置信息
+                if (specs.isNotEmpty)
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: theme.hintColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(specs, style: TextStyle(color: theme.hintColor, fontSize: 12)),
+                    ),
+                  ),
+                // 地区标签
+                if (region.isNotEmpty) ...[
+                  if (specs.isNotEmpty) const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(_getRegionName(region), style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w500)),
+                  ),
+                ],
+              ],
+            ),
             const SizedBox(height: 12),
             Row(
               children: [

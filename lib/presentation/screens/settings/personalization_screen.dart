@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tdesign_flutter/tdesign_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/rainyun_api_service.dart';
 
 // 主题模式Provider
@@ -10,10 +11,29 @@ final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((r
 });
 
 class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  ThemeModeNotifier() : super(ThemeMode.system);
+  ThemeModeNotifier() : super(ThemeMode.system) {
+    _loadFromPrefs();
+  }
   
-  void setThemeMode(ThemeMode mode) {
+  Future<void> _loadFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final themeModeStr = prefs.getString('theme_mode') ?? 'system';
+    state = switch (themeModeStr) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
+  }
+  
+  Future<void> setThemeMode(ThemeMode mode) async {
     state = mode;
+    final prefs = await SharedPreferences.getInstance();
+    final themeModeStr = switch (mode) {
+      ThemeMode.light => 'light',
+      ThemeMode.dark => 'dark',
+      _ => 'system',
+    };
+    await prefs.setString('theme_mode', themeModeStr);
   }
 }
 
@@ -23,10 +43,19 @@ final cardStyleProvider = StateNotifierProvider<CardStyleNotifier, String>((ref)
 });
 
 class CardStyleNotifier extends StateNotifier<String> {
-  CardStyleNotifier() : super('list');  // list 或 dashboard
+  CardStyleNotifier() : super('list') {
+    _loadFromPrefs();
+  }
   
-  void setCardStyle(String style) {
+  Future<void> _loadFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    state = prefs.getString('card_style') ?? 'list';
+  }
+  
+  Future<void> setCardStyle(String style) async {
     state = style;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('card_style', style);
   }
 }
 
@@ -64,18 +93,18 @@ class _PersonalizationScreenState extends ConsumerState<PersonalizationScreen> {
       if (response != null) {
         final prefs = response['preferences'] as Map<String, dynamic>? ?? {};
         
-        // 加载主题模式
+        // 从云端加载主题模式（会自动保存到本地）
         final themeModeStr = prefs['theme_mode'] as String? ?? 'system';
         final themeMode = switch (themeModeStr) {
           'light' => ThemeMode.light,
           'dark' => ThemeMode.dark,
           _ => ThemeMode.system,
         };
-        ref.read(themeModeProvider.notifier).setThemeMode(themeMode);
+        await ref.read(themeModeProvider.notifier).setThemeMode(themeMode);
         
-        // 加载卡片样式
+        // 从云端加载卡片样式（会自动保存到本地）
         final cardStyle = prefs['card_style'] as String? ?? 'list';
-        ref.read(cardStyleProvider.notifier).setCardStyle(cardStyle);
+        await ref.read(cardStyleProvider.notifier).setCardStyle(cardStyle);
         
         // 如果本地没有API Key但云端有，则同步到本地
         final cloudApiKey = response['rainyun_api_key'] as String?;
@@ -89,7 +118,7 @@ class _PersonalizationScreenState extends ConsumerState<PersonalizationScreen> {
     }
   }
   
-  Future<void> _savePreferences() async {
+  Future<void> _savePreferencesToCloud() async {
     final user = _supabase.auth.currentUser;
     if (user == null) return;
     
@@ -112,7 +141,7 @@ class _PersonalizationScreenState extends ConsumerState<PersonalizationScreen> {
         'updated_at': DateTime.now().toIso8601String(),
       }, onConflict: 'user_id');
     } catch (e) {
-      debugPrint('保存偏好设置失败: $e');
+      debugPrint('保存偏好设置到云端失败: $e');
     }
   }
   
@@ -360,9 +389,9 @@ class _PersonalizationScreenState extends ConsumerState<PersonalizationScreen> {
       leading: Icon(icon, color: isSelected ? Theme.of(context).primaryColor : null),
       title: Text(title),
       trailing: isSelected ? Icon(Icons.check, color: Theme.of(context).primaryColor) : null,
-      onTap: () {
-        ref.read(themeModeProvider.notifier).setThemeMode(mode);
-        _savePreferences();
+      onTap: () async {
+        await ref.read(themeModeProvider.notifier).setThemeMode(mode);
+        _savePreferencesToCloud();
       },
     );
   }
@@ -374,9 +403,9 @@ class _PersonalizationScreenState extends ConsumerState<PersonalizationScreen> {
       title: Text(title),
       subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
       trailing: isSelected ? Icon(Icons.check, color: Theme.of(context).primaryColor) : null,
-      onTap: () {
-        ref.read(cardStyleProvider.notifier).setCardStyle(style);
-        _savePreferences();
+      onTap: () async {
+        await ref.read(cardStyleProvider.notifier).setCardStyle(style);
+        _savePreferencesToCloud();
       },
     );
   }

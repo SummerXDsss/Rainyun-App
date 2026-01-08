@@ -606,6 +606,7 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
     final displayName = _getDisplayName(server);
     final typeName = _getTypeName(type);
     final status = server['Status'] ?? 'unknown';
+    final ip = server['MainIPv4'] ?? '';
     
     final usageData = server['UsageData'] as Map<String, dynamic>? ?? {};
     final cpuUsage = (usageData['CPU'] as num?)?.toDouble() ?? 0;
@@ -670,13 +671,27 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    // IP地址
+                    if (ip.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        ip,
+                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                     const Spacer(),
-                    // CPU使用率
-                    if (status == 'running') ...[
-                      _buildMiniGauge('CPU', cpuUsage, Colors.blue),
-                      const SizedBox(height: 8),
-                      _buildMiniGauge('内存', memUsage.toDouble(), Colors.purple),
-                    ] else
+                    // CPU/内存使用率仪表盘
+                    if (status == 'running')
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildCircularGauge('CPU', cpuUsage, Colors.blue),
+                          _buildCircularGauge('内存', memUsage.toDouble(), Colors.purple),
+                        ],
+                      )
+                    else
                       Center(
                         child: Text(
                           status == 'stopped' ? '已停止' : '未知',
@@ -693,30 +708,86 @@ class _ServersScreenState extends ConsumerState<ServersScreen> {
     );
   }
 
-  Widget _buildMiniGauge(String label, double value, Color color) {
-    return Row(
+  Widget _buildCircularGauge(String label, double value, Color color) {
+    return Column(
       children: [
-        SizedBox(width: 28, child: Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[600]))),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: (value / 100).clamp(0, 1),
-              backgroundColor: color.withOpacity(0.1),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-              minHeight: 6,
+        SizedBox(
+          width: 56,
+          height: 56,
+          child: CustomPaint(
+            painter: _CircularGaugePainter(
+              value: value,
+              color: color,
+            ),
+            child: Center(
+              child: Text(
+                '${value.toStringAsFixed(0)}%',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
             ),
           ),
         ),
-        const SizedBox(width: 4),
-        SizedBox(
-          width: 32,
-          child: Text('${value.toStringAsFixed(0)}%', style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
         ),
       ],
     );
   }
+}
 
+// 圆形仪表盘绘制器
+class _CircularGaugePainter extends CustomPainter {
+  final double value;
+  final Color color;
+
+  _CircularGaugePainter({required this.value, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 4;
+    
+    // 绘制背景圆环
+    final bgPaint = Paint()
+      ..color = color.withOpacity(0.1)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round;
+    
+    canvas.drawCircle(center, radius, bgPaint);
+    
+    // 绘制进度圆环
+    final progressPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round;
+    
+    const startAngle = -90 * 3.14159 / 180;
+    final sweepAngle = (value / 100) * 2 * 3.14159;
+    
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      sweepAngle,
+      false,
+      progressPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_CircularGaugePainter oldDelegate) {
+    return oldDelegate.value != value || oldDelegate.color != color;
+  }
+}
+
+extension _ServersScreenStateExtension on _ServersScreenState {
   String _getRegionWithFlag(String region) {
     if (region.contains('hk') || region.contains('HK')) {
       return '🇭🇰 香港';

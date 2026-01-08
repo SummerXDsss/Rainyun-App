@@ -948,7 +948,7 @@ class _RenewDialogState extends State<_RenewDialog> {
   bool _isLoading = true;
   bool _isSubmitting = false;
   double _userBalance = 0;
-  Map<String, dynamic> _prices = {};  // 各时长价格
+  double _monthlyPrice = 0;  // 单月价格
   int _selectedDuration = 1;  // 默认1个月
   String? _error;
 
@@ -970,12 +970,13 @@ class _RenewDialogState extends State<_RenewDialog> {
         _userBalance = (userData['Money'] as num?)?.toDouble() ?? 0;
       }
 
-      // 获取续费价格
+      // 获取续费价格（API返回单月价格 {Price: 30}）
       final priceResponse = await widget.apiService.get(
         '/product/${widget.productType}/${widget.productId}/renew/',
       );
       if (priceResponse['code'] == 200) {
-        _prices = Map<String, dynamic>.from(priceResponse['data'] ?? {});
+        final data = priceResponse['data'] ?? {};
+        _monthlyPrice = (data['Price'] as num?)?.toDouble() ?? 0;
       }
       
       setState(() {
@@ -989,20 +990,14 @@ class _RenewDialogState extends State<_RenewDialog> {
     }
   }
 
-  double get _price {
-    // 尝试获取对应时长的价格
-    final key = _selectedDuration.toString();
-    if (_prices.containsKey(key)) {
-      return (_prices[key] as num?)?.toDouble() ?? 0;
-    }
-    // 尝试其他可能的字段名
-    final price = _prices['price_$_selectedDuration'] ?? 
-                  _prices['Price$_selectedDuration'] ?? 
-                  _prices['price'] ?? 0;
-    return (price as num?)?.toDouble() ?? 0;
+  // 计算选中时长的总价
+  double _getPriceForDuration(int duration) {
+    return _monthlyPrice * duration;
   }
 
-  bool get _canRenew => _userBalance >= _price && _price > 0;
+  double get _price => _getPriceForDuration(_selectedDuration);
+
+  bool get _canRenew => _userBalance >= _price && _monthlyPrice > 0;
 
   Future<void> _doRenew() async {
     if (!_canRenew) {
@@ -1092,11 +1087,8 @@ class _RenewDialogState extends State<_RenewDialog> {
                       runSpacing: 8,
                       children: _durationOptions.map((duration) {
                         final isSelected = _selectedDuration == duration;
-                        final key = duration.toString();
-                        final price = _prices.containsKey(key) 
-                            ? (_prices[key] as num?)?.toDouble() ?? 0
-                            : 0.0;
-                        final canAfford = _userBalance >= price && price > 0;
+                        final price = _getPriceForDuration(duration);
+                        final canAfford = _userBalance >= price && _monthlyPrice > 0;
                         
                         return GestureDetector(
                           onTap: canAfford ? () => setState(() => _selectedDuration = duration) : null,
@@ -1125,7 +1117,7 @@ class _RenewDialogState extends State<_RenewDialog> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  price > 0 ? '¥${price.toStringAsFixed(2)}' : '-',
+                                  _monthlyPrice > 0 ? '¥${price.toStringAsFixed(0)}' : '-',
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: isSelected

@@ -67,6 +67,10 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildNavItem(_NavItem item, int index, bool isSelected, ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+    // 深色模式下未选中图标使用更亮的颜色
+    final unselectedColor = isDark ? Colors.grey[400] : theme.hintColor;
+    
     return GestureDetector(
       onTap: () => setState(() => _currentIndex = index),
       behavior: HitTestBehavior.opaque,
@@ -90,7 +94,7 @@ class _MainScreenState extends State<MainScreen> {
                 transform: Matrix4.translationValues(0, isSelected ? -2 : 0, 0),
                 child: Icon(
                   isSelected ? item.selectedIcon : item.icon,
-                  color: isSelected ? theme.primaryColor : theme.hintColor,
+                  color: isSelected ? theme.primaryColor : unselectedColor,
                   size: isSelected ? 26 : 24,
                 ),
               ),
