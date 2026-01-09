@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:tdesign_flutter/tdesign_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/services/rainyun_api_service.dart';
-import '../points/points_screen.dart';
+import '../settings/widget_settings_screen.dart';
 
 class MiscScreen extends StatefulWidget {
   const MiscScreen({super.key});
@@ -73,6 +73,17 @@ class _MiscScreenState extends State<MiscScreen> {
               ),
               child: Column(
                 children: [
+                  _buildListItem(
+                    icon: Icons.widgets,
+                    iconColor: Colors.indigo,
+                    title: '桌面小组件',
+                    subtitle: '在桌面显示服务器状态',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const WidgetSettingsScreen()),
+                    ),
+                  ),
+                  const Divider(height: 1, indent: 56),
                   _buildListItem(
                     icon: Icons.speed,
                     iconColor: Colors.purple,

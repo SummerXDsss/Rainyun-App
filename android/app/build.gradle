@@ -63,3 +63,11 @@ flutter {
 }
 
 dependencies {}
+
+// 解决依赖版本冲突
+configurations.all {
+    resolutionStrategy {
+        force 'androidx.work:work-runtime:2.8.1'
+        force 'androidx.work:work-runtime-ktx:2.8.1'
+    }
+}
