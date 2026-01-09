@@ -12,6 +12,7 @@ class WidgetService {
   static const String _androidWidgetName = 'com.rainyun.rainyun_app.ServerWidgetProvider';
   static const String _selectedServerKey = 'widget_selected_server_id';
   static const String _selectedServerTypeKey = 'widget_selected_server_type';
+  static const String _cardStyleKey = 'card_style'; // 个性化设置中的卡片样式key
   
   final RainyunApiService _apiService = RainyunApiService();
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -33,6 +34,12 @@ class WidgetService {
     return prefs.getString(_selectedServerTypeKey);
   }
   
+  /// 获取当前卡片样式设置
+  Future<String> getCardStyle() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_cardStyleKey) ?? 'list';
+  }
+  
   /// 设置要显示的服务器
   Future<void> setSelectedServer(int serverId, {String type = 'RCS'}) async {
     final prefs = await SharedPreferences.getInstance();
@@ -52,6 +59,7 @@ class WidgetService {
       
       if (serverId == null) {
         debugPrint('📱 [Widget] 没有选中服务器');
+        final cardStyle = await getCardStyle();
         // 没有选中服务器，显示默认状态
         await _setWidgetData(
           name: '未选择服务器',
@@ -62,6 +70,7 @@ class WidgetService {
           memUsage: 0,
           specs: '',
           expire: '',
+          cardStyle: cardStyle,
         );
         return;
       }
@@ -163,6 +172,9 @@ class WidgetService {
       _ => '未知',
     };
     
+    // 获取卡片样式
+    final cardStyle = await getCardStyle();
+    
     await _setWidgetData(
       name: name,
       status: statusText,
@@ -172,6 +184,7 @@ class WidgetService {
       memUsage: memUsage,
       specs: specs,
       expire: expire,
+      cardStyle: cardStyle,
     );
   }
   
@@ -185,6 +198,7 @@ class WidgetService {
     required int memUsage,
     required String specs,
     required String expire,
+    required String cardStyle,
   }) async {
     debugPrint('📱 [Widget] 保存小组件数据:');
     debugPrint('  - server_name: $name');
@@ -195,6 +209,7 @@ class WidgetService {
     debugPrint('  - mem_usage: $memUsage');
     debugPrint('  - server_specs: $specs');
     debugPrint('  - server_expire: $expire');
+    debugPrint('  - card_style: $cardStyle');
     
     try {
       await HomeWidget.saveWidgetData<String>('server_name', name);
@@ -205,6 +220,7 @@ class WidgetService {
       await HomeWidget.saveWidgetData<int>('mem_usage', memUsage);
       await HomeWidget.saveWidgetData<String>('server_specs', specs);
       await HomeWidget.saveWidgetData<String>('server_expire', expire);
+      await HomeWidget.saveWidgetData<String>('card_style', cardStyle);
       
       debugPrint('📱 [Widget] 数据保存成功，触发更新...');
       

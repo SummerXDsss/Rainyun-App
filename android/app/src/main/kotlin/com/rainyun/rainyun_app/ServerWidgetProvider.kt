@@ -49,17 +49,24 @@ class ServerWidgetProvider : AppWidgetProvider() {
         ) {
             Log.d(TAG, "updateAppWidget called for widgetId: $appWidgetId")
             
-            val views = RemoteViews(context.packageName, R.layout.server_widget)
-            
             // 直接使用正确的SharedPreferences名称
             val widgetData = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            
+            // 读取卡片样式设置
+            val cardStyle = widgetData.getString("card_style", "list") ?: "list"
+            Log.d(TAG, "Card style: $cardStyle")
+            
+            // 根据样式选择布局
+            val layoutId = if (cardStyle == "dashboard") {
+                R.layout.server_widget_dashboard
+            } else {
+                R.layout.server_widget
+            }
+            val views = RemoteViews(context.packageName, layoutId)
             
             // 打印所有存储的数据用于调试
             val allPrefs = widgetData.all
             Log.d(TAG, "All prefs count: ${allPrefs.size}")
-            allPrefs.forEach { (key, value) ->
-                Log.d(TAG, "  $key = $value (${value?.javaClass?.simpleName})")
-            }
             
             // 从SharedPreferences读取，如果没有数据则显示"请选择服务器"
             val serverName = widgetData.getString("server_name", null) ?: "请选择服务器"
