@@ -42,9 +42,11 @@ class WidgetService {
   
   /// 设置要显示的服务器
   Future<void> setSelectedServer(int serverId, {String type = 'RCS'}) async {
+    debugPrint('📱 [Widget] setSelectedServer - serverId: $serverId, type: $type');
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_selectedServerKey, serverId);
     await prefs.setString(_selectedServerTypeKey, type.toLowerCase());
+    debugPrint('📱 [Widget] 已保存到SharedPreferences');
     // 立即更新小组件
     await updateWidget();
   }
